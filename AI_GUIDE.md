@@ -71,7 +71,7 @@ HTTP API для скриптов (всё на `http://127.0.0.1:8877`):
 
 ### `brain_overview`: начинай с него
 Параметры (все необязательные): `since` (`ГГГГ-ММ-ДД`), `provider` (`chatgpt`, `claude`, `codex`,
-`claude-code`, `obsidian`, `email`), `limit` (1–30).
+`claude-code`, `obsidian`, `email`, `telegram`), `limit` (1–30).
 Возвращает `totals`, `period`, `projects`, `top_topics`, `recent` (последние записи с выжимками) и `next_steps`.
 
 ### `brain_search`: поиск
@@ -122,6 +122,6 @@ HTTP API для скриптов (всё на `http://127.0.0.1:8877`):
 ## 6. Для нейросети-разработчика
 
 - Код: `app/` (Node.js, ES-модули, без сборки и без зависимостей у ядра). Сайт лежит в `app/public/`.
-- Тесты: `npm test` из корня. Все 117 должны проходить. Проверка целиком: `npm run check`.
+- Тесты: `npm test` из корня. Все 125 должны проходить. Проверка целиком: `npm run check`.
 - Устройство описано в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Не трогай `store/`. Не удаляй данные. Перед массовыми изменениями согласуй их с пользователем.

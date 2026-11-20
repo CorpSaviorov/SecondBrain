@@ -55,6 +55,7 @@ Express и официальном MCP SDK:
 | `connectors/registry.mjs` | список источников, включение/выключение, запуск драйверов |
 | `connectors/native-files.mjs` + `native-read.py` + `python/intake.py` | чтение сессий Codex и Claude Code |
 | `connectors/markdown-folder.mjs` | папка заметок (Obsidian не обязателен) |
+| `connectors/telegram-bot.mjs` | Telegram: свой бот, long polling, подтверждение чатов кодом, записи «чат × день», файлы до 20 МБ, импорт выгрузки Telegram Desktop |
 | `connectors/imap-mail.mjs`, `mail-*.mjs` | почта только на чтение (EXAMINE, BODY.PEEK) порциями с контрольными точками |
 | `lib/lexical.mjs`, `lib/ranking.mjs`, `lib/query.mjs` | токенизация, русский Snowball, BM25, ранжирование по свежести |
 | `lib/secrets.mjs` | маскирование ключей и паролей во всём, что выходит из базы |
@@ -116,6 +117,9 @@ Express и официальном MCP SDK:
 | `BRAIN_PUBLIC_ORIGIN` | не задан | внешний адрес (Tailscale или домен за прокси), с которого разрешены запросы; несколько — через запятую. См. [REMOTE.md](REMOTE.md) |
 | `BRAIN_PYTHON` | `python` (Windows) / `python3` | какой Python запускать |
 | `BRAIN_CLOUD_PORT` | `8878` | порт помощника сбора аккаунтов |
+| `BRAIN_TZ` | часовой пояс системы | по какому поясу Telegram-сообщения делятся на дни, например `Europe/Moscow` |
+| `BRAIN_TELEGRAM_API` | `https://api.telegram.org` | адрес Bot API (свой Bot API сервер или прокси) |
+| `BRAIN_TELEGRAM_LOOP` | включено | `off` отключает постоянный опрос Telegram (остаётся кнопка «Обновить») |
 
 ## Перенос на macOS или Linux
 

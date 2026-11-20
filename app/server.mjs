@@ -15,6 +15,7 @@ import {MailAccounts} from './connectors/mail-accounts.mjs';
 import {AttachmentIndex} from './attachment-index.mjs';
 import {loadRules,saveRules,reclassify,CATEGORY_NAMES} from './lib/mail-filter.mjs';
 import {openMailSetup} from './connectors/mail-browser.mjs';
+import {telegramBot,startTelegramLoop} from './connectors/telegram-bot.mjs';
 // Remote access (Tailscale, VPS behind a reverse proxy): BRAIN_PUBLIC_ORIGIN=https://brain.example.ru[,https://…]
 // adds those addresses to the Host/Origin allow-list. The server itself still listens on 127.0.0.1 only.
 const PUBLIC_ORIGINS=String(process.env.BRAIN_PUBLIC_ORIGIN||'').split(',').map(s=>s.trim()).filter(Boolean).map(s=>{const u=new URL(s);if(!['http:','https:'].includes(u.protocol))throw Error('BRAIN_PUBLIC_ORIGIN: нужен http(s)-адрес');return u;});
@@ -93,6 +94,13 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==='POST'&&u.pathname==='/api/model/check')return send(res,200,await modelProvider.check());
   if(req.method==='POST'&&['/api/cloud/login','/api/cloud/probe'].includes(u.pathname)){const p=await readBody(req),c=registry.get(p.id);if(!c?.enabled||c.driver!=='cloud-account')throw Error('Сначала включите подключение');const r=await cloudAction(c.provider,u.pathname.endsWith('/login')?'login':'probe',c.id);if(u.pathname.endsWith('/probe'))store.state(c.id,r.status,{message:r.message,driver:c.driver});return send(res,200,r);}
   if(req.method==='GET'&&u.pathname==='/api/connectors')return send(res,200,{connectors:registry.list()});
+  if(u.pathname.startsWith('/api/telegram/')){const tg=telegramBot(store,registry);
+   if(req.method==='GET'&&u.pathname==='/api/telegram/status')return send(res,200,tg.status());
+   if(req.method==='POST'&&u.pathname==='/api/telegram/token'){const p=await readBody(req);return send(res,200,await tg.saveToken(p.token,{deleteWebhook:p.delete_webhook===true}));}
+   if(req.method==='POST'&&u.pathname==='/api/telegram/approve'){const p=await readBody(req);return send(res,200,await tg.approve(p.chat_id,p.code));}
+   if(req.method==='POST'&&u.pathname==='/api/telegram/forget'){const p=await readBody(req);return send(res,200,tg.forget(p.chat_id));}
+   if(req.method==='POST'&&u.pathname==='/api/telegram/import'){const p=await readBody(req);if(!registry.get('telegram')?.enabled)throw Error('Сначала включите источник Telegram в «Источниках»');const r=tg.importExport(p.data??p);memoCache.clear();recordViews.neighbourCache=null;return send(res,200,r);}
+  }
   if(req.method==='GET'&&u.pathname==='/api/mail/status')return send(res,200,mailAccounts.status(q.id));
   if(req.method==='POST'&&u.pathname==='/api/mail/open-setup'){const p=await readBody(req);return send(res,200,await openMailSetup(mailAccounts.connector(p.id)));}
   if(req.method==='GET'&&u.pathname==='/api/mail/filter')return send(res,200,mailFilterStatus());
@@ -166,7 +174,7 @@ const server=http.createServer(async(req,res)=>{
  }catch(e){send(res,e.statusCode||400,{error:e.message});}
 });
 server.on('error',e=>{console.error(e.code==='EADDRINUSE'?'SecondBrain is already running on port '+port:e.message);store.close();process.exit(1);});
-server.listen(port,'127.0.0.1',()=>{console.log('SecondBrain local: http://127.0.0.1:'+server.address().port);if(process.env.BRAIN_CARD_WORKER!=='off')cardWorker.start();setTimeout(()=>attachments.run().then(r=>{if(r.checked)console.log('Attachment text: checked '+r.checked+', with text '+r.with_text);recordViews.neighbourCache=null;}).catch(e=>console.error('attachments',e.message)),5000);setInterval(()=>attachments.run().catch(e=>console.error('attachments',e.message)),15*60*1000).unref();const warm=()=>{try{recordViews.neighbours();}catch(e){console.error('warm neighbours',e.message);}};setTimeout(warm,1500);setInterval(warm,120000).unref();});
+server.listen(port,'127.0.0.1',()=>{console.log('SecondBrain local: http://127.0.0.1:'+server.address().port);if(process.env.BRAIN_TELEGRAM_LOOP!=='off')startTelegramLoop(telegramBot(store,registry));if(process.env.BRAIN_CARD_WORKER!=='off')cardWorker.start();setTimeout(()=>attachments.run().then(r=>{if(r.checked)console.log('Attachment text: checked '+r.checked+', with text '+r.with_text);recordViews.neighbourCache=null;}).catch(e=>console.error('attachments',e.message)),5000);setInterval(()=>attachments.run().catch(e=>console.error('attachments',e.message)),15*60*1000).unref();const warm=()=>{try{recordViews.neighbours();}catch(e){console.error('warm neighbours',e.message);}};setTimeout(warm,1500);setInterval(warm,120000).unref();});
 const timer=setInterval(()=>{collect().catch(e=>store.state('local-sync','error',{error:e.message}));},15*60*1000);timer.unref();
 // Mail history backfill (user, 2026-11-18): while a mailbox still has unread history (state backfill), pull the next
 // batch (up to 200 e-mails) every minute instead of waiting 15 minutes. New mail afterwards keeps the 15-minute cycle.

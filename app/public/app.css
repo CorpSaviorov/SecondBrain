@@ -477,3 +477,9 @@ blockquote{margin:8px 0;padding:8px 12px;border:1px solid var(--line);background
  .connection-grid{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/* Telegram card rows: chat name, code input, action. */
+.tg-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line,rgba(127,127,127,.2))}
+.tg-row span{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
+.tg-row input{width:9em}
+.cc-more .mail-form .tg-row .btn{width:auto}
+.mail-form h4{margin:12px 0 4px;font-size:13px}

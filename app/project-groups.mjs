@@ -19,7 +19,7 @@ export function projectGroup(doc,assignment){
  if(wiki&&aliases[wiki.toLowerCase()]){name=normal(wiki);return {id:projectId(name),label:name,type:'project',basis:'wiki-project-file'};}
  const local=p.match(/\/\.claude\/projects\/([^/]+)\//)?.[1];
  if(local){name=local.split(/-Desktop-|-Documents-/i).at(-1).replace(/-/g,' ');return {id:projectId(name),label:name,type:'project',basis:'session-folder'};}
- const buckets={chatgpt:['Разговоры без проекта','chatgpt'],claude:['Разговоры Claude без проекта','claude'],obsidian:['Заметки и Wiki','obsidian'],codex:['Сессии Codex','codex'],'claude-code':['Сессии Claude Code','claude-code'],email:['Почта','email']};
+ const buckets={chatgpt:['Разговоры без проекта','chatgpt'],claude:['Разговоры Claude без проекта','claude'],obsidian:['Заметки и Wiki','obsidian'],codex:['Сессии Codex','codex'],'claude-code':['Сессии Claude Code','claude-code'],email:['Почта','email'],telegram:['Telegram','telegram']};
  if(doc.provider==='email'){const m=mailService(doc.account);return {id:'bucket:email-'+m.key,label:m.name,type:'collection',basis:'provider-without-project'};}
  const [label,key]=buckets[doc.provider]||['Другие материалы',doc.provider];
  return {id:'bucket:'+key,label,type:'collection',basis:'provider-without-project'};

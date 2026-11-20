@@ -9,12 +9,13 @@ const definitions=[
  {id:'chatgpt',provider:'chatgpt',name:'ChatGPT',driver:'cloud-account',enabled:true,config:{account:'personal',connection:'standalone-account-adapter-pending'}},
  {id:'claude',provider:'claude',name:'Claude',driver:'cloud-account',enabled:true,config:{account:'personal',connection:'standalone-account-adapter-pending'}},
  {id:'email-gmail',provider:'email',name:'Gmail',driver:'imap-mail',enabled:false,config:{service:'gmail'}},
- {id:'email-yandex',provider:'email',name:'Яндекс Почта',driver:'imap-mail',enabled:false,config:{service:'yandex'}}
+ {id:'email-yandex',provider:'email',name:'Яндекс Почта',driver:'imap-mail',enabled:false,config:{service:'yandex'}},
+ {id:'telegram',provider:'telegram',name:'Telegram',driver:'telegram-bot',enabled:false,config:{}}
 ];
 export class ConnectorRegistry{
  constructor(store,{defaults=definitions}={}){
   this.store=store;this.running=new Map();this.drivers=new Map([
-   ['markdown-folder',()=>import('./markdown-folder.mjs')],['native-files',()=>import('./native-files.mjs')],['cloud-account',()=>import('./cloud-account.mjs')],['imap-mail',()=>import('./imap-mail.mjs')]
+   ['markdown-folder',()=>import('./markdown-folder.mjs')],['native-files',()=>import('./native-files.mjs')],['cloud-account',()=>import('./cloud-account.mjs')],['imap-mail',()=>import('./imap-mail.mjs')],['telegram-bot',()=>import('./telegram-bot.mjs')]
   ]);
   store.db.exec(`CREATE TABLE IF NOT EXISTS source_connectors(id TEXT PRIMARY KEY,provider TEXT NOT NULL,name TEXT NOT NULL,
    driver TEXT NOT NULL,enabled INTEGER NOT NULL,config TEXT NOT NULL,updated_at TEXT NOT NULL);`);
