@@ -1,0 +1,24 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
+import {BrainStore} from './store.mjs';import {RecordViews} from './record-view.mjs';
+const source=(id,path='notes/a.md')=>({provider:'obsidian',external_id:id,source_path:path,title:'Проверка '+id,body:'Рефакторинг компонентов',messages:[{id:'note',role:'note',text:'Рефакторинг компонентов'}]});
+test('personal card note persists in SQLite, is idempotent and never rewrites original/card',()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'brain-record-save-')),file=path.join(root,'brain.sqlite');let s=new BrainStore(file),v=new RecordViews(s),r=s.ingest(source('a'));
+ const before=s.detail(r.id).body,save=v.saveAnnotation(r.id,{note:'Моя заметка',pinned:true,expected_version:0,base_revision:r.revision});assert.equal(save.version,1);assert.equal(v.saveAnnotation(r.id,{note:'Моя заметка',pinned:true,expected_version:1,base_revision:r.revision}).changed,false);s.close();
+ s=new BrainStore(file);v=new RecordViews(s);assert.equal(v.detail(r.id).annotation.note,'Моя заметка');assert.equal(s.detail(r.id).body,before);assert.equal(s.stats().cards,0);s.close();
+});
+test('card note rejects stale concurrent edit or changed source version',()=>{const s=new BrainStore(':memory:'),v=new RecordViews(s),r=s.ingest(source('a'));v.saveAnnotation(r.id,{note:'Первое',expected_version:0,base_revision:r.revision});assert.throws(()=>v.saveAnnotation(r.id,{note:'Другое',expected_version:0,base_revision:r.revision}),/другом окне/);s.ingest({...source('a'),body:'Новая версия',messages:[{id:'note',role:'note',text:'Новая версия'}]});assert.throws(()=>v.saveAnnotation(r.id,{note:'Другое',expected_version:1,base_revision:r.revision}),/обновилась/);s.close();});
+test('search pagination and project filters apply before result limit',()=>{const s=new BrainStore(':memory:'),v=new RecordViews(s);for(let i=0;i<112;i++)s.ingest(source(String(i),'Projects/'+(i<105?'Other':'Target')+'/a'+i+'.md'));const target=v.projects().find(p=>p.label==='Target');assert.equal(v.records({q:'рефакторинг',project:target.id}).total,7);const first=v.records({q:'рефакторинг',limit:30}),next=v.records({q:'рефакторинг',limit:30,offset:first.next_offset});assert.equal(first.total,112);assert.equal(next.results.length,30);assert.ok(!first.results.some(a=>next.results.some(b=>a.id===b.id)));s.close();});
+test('network contains source records and real links, with no synthetic center/star',()=>{const s=new BrainStore(':memory:'),v=new RecordViews(s);s.ingest(source('a'));s.ingest(source('b'));const graph=v.network();assert.equal(graph.nodes.length,2);assert.ok(graph.nodes.every(n=>n.type==='source'));assert.equal(graph.edges.length,0);assert.equal(graph.isolated_sources,2);s.close();});
+test('network and card detail use current reviewed keywords and preserve evidence roles',()=>{
+ const s=new BrainStore(':memory:'),v=new RecordViews(s),a=s.ingest(source('a')),b=s.ingest(source('b'));
+ for(const r of [a,b])s.attachCards(r.id,r.revision,[{key:'full',reviewed_at:'2026-11-15',payload:{schema:'source-card-v1',reviewer:'gpt-6-luna',sha256:'test-hash',title:'Тест',summary:'Синтетическая выжимка',keywords:['Рефакторинг'],questions:['Как проверить?'],items:[{kind:'note_statement',text:'Тест',evidence:[{role:'note',quote:'Рефакторинг',start_char:0,end_char:11}]}]}}],'test-hash');
+ const graph=v.network();assert.equal(graph.nodes.length,2);assert.equal(graph.edges.length,1);assert.ok(graph.edges[0].kinds.includes('topic'));assert.match(graph.edges[0].labels[0],/рефакторинг/i);assert.equal(v.detail(a.id).atoms[0].evidence[0].role,'note');
+ const cardBefore=JSON.stringify(v.detail(a.id).card);v.saveAnnotation(a.id,{note:'Личное дополнение',base_revision:a.revision});assert.equal(JSON.stringify(v.detail(a.id).card),cardBefore);
+ s.ingest({...source('b'),body:'Изменено',messages:[{id:'note',role:'note',text:'Изменено'}]});assert.equal(v.network().edges.length,0);assert.equal(v.detail(b.id).card,null);s.close();
+});
+test('related records come from the cached logical graph and are rebuilt only when the data changes',()=>{
+ const s=new BrainStore(':memory:'),v=new RecordViews(s),a=s.ingest(source('a')),b=s.ingest(source('b'));
+ for(const r of [a,b])s.attachCards(r.id,r.revision,[{key:'full',reviewed_at:'2026-11-15',payload:{schema:'source-card-v1',reviewer:'gpt-6-luna',sha256:'test-hash',title:'Тест',summary:'Выжимка',keywords:['Рефакторинг'],questions:['Как проверить?'],items:[{kind:'note_statement',text:'Тест',evidence:[{role:'note',quote:'Рефакторинг',start_char:0,end_char:11}]}]}}],'test-hash');
+ const rel=v.related(a.id);assert.equal(rel[0].id,b.id);assert.match(rel[0].basis,/рефакторинг/i);
+ const cached=v.neighbourCache.map;v.related(b.id);assert.equal(v.neighbourCache.map,cached);
+ s.ingest(source('c'));v.related(a.id);assert.notEqual(v.neighbourCache.map,cached);s.close();});

@@ -1,0 +1,20 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {execFileSync} from 'node:child_process';import {fileURLToPath} from 'node:url';
+import {BrainStore} from './store.mjs';import {CardWorker} from './card-worker.mjs';import {storeMail} from './connectors/mail-record.mjs';
+test('purge removes only old service mail with its traces; correspondence, new mail, notes and other sources stay',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'brain-purge-')),file=path.join(dir,'brain.sqlite'),s=new BrainStore(file),_w=new CardWorker(s,{config:()=>({})}),me='me@yandex.ru',c={id:'email-yandex',provider:'email',config:{account:me,service:'yandex'}};
+ const put=(id,from,subject,date,extra='')=>storeMail(s,c,Buffer.from(`From: ${from}\r\nSubject: x${id}\r\nMessage-ID: <${id}@t>\r\n${extra}\r\nтекст ${id}`),{subject,from:{value:[{address:from}]},to:{value:[{address:me}]},cc:{value:[]},text:'Текст письма '+id,attachments:id==='a1'?[{filename:'f.txt',contentType:'text/plain',content:Buffer.from('файл')}]:[],messageId:'<'+id+'@t>',date:new Date(date)},{folder:'INBOX',uid:id.length+Math.random(),uidValidity:1}).id;
+ const oldPromo=put('a1','news@shop.ru','Скидки недели','2025-05-01T10:00:00Z','List-Unsubscribe: <mailto:u@shop.ru>\r\n');
+ const oldReal=put('b2','ivan@firm.ru','Договор поставки','2023-06-01T10:00:00Z');
+ const newPromo=put('c3','news@shop.ru','Скидки ноября','2026-11-05T10:00:00Z','List-Unsubscribe: <mailto:u@shop.ru>\r\n');
+ const pinned=put('d4','noreply@jobs.example','Вакансии','2025-01-01T10:00:00Z');
+ s.db.exec("CREATE TABLE IF NOT EXISTS record_annotations(source_id TEXT PRIMARY KEY,note TEXT NOT NULL,pinned INTEGER NOT NULL,version INTEGER NOT NULL,base_revision TEXT NOT NULL,updated_at TEXT NOT NULL)");s.db.prepare("INSERT INTO record_annotations VALUES(?,?,?,?,?,?)").run(pinned,'важно',1,1,'r',new Date().toISOString());
+ s.ingest({provider:'chatgpt',external_id:'x',title:'Чат',body:'чат',messages:[{id:'u',role:'user',text:'чат'}],source_date:'2024-01-01T00:00:00Z'});
+ const assetFile=s.db.prepare('SELECT path FROM assets WHERE source_id=?').get(oldPromo).path;assert.ok(fs.existsSync(assetFile));s.close();
+ const run=(...a)=>JSON.parse(execFileSync(process.execPath,[fileURLToPath(new URL('./tools/purge-old-service-mail.mjs',import.meta.url)),file,'2026-11-01',...a],{encoding:'utf8'}).trim().split('\n')[0]);
+ const dry=run();assert.equal(dry.service_to_delete,1);assert.equal(dry.old_correspondence_kept,1);
+ const t=new BrainStore(file);assert.ok(t.db.prepare('SELECT 1 FROM sources WHERE id=?').get(oldPromo));t.close();
+ run('--apply');const v=new BrainStore(file),ids=v.db.prepare('SELECT id FROM sources').all().map(r=>r.id);
+ assert.ok(!ids.includes(oldPromo));for(const k of [oldReal,newPromo,pinned])assert.ok(ids.includes(k));assert.equal(ids.length,4);
+ for(const tb of ['versions','terms','mail_categories','mail_locations','processing_queue','assets','capture_receipts','mail_signals'])assert.equal(v.db.prepare(`SELECT count(*) n FROM ${tb} WHERE source_id=?`).get(oldPromo).n,0,tb);
+ assert.equal(v.db.prepare('SELECT count(*) n FROM source_fts WHERE source_id=?').get(oldPromo).n,0);assert.ok(!fs.existsSync(assetFile));
+ assert.equal(v.search('договор поставки').total,1);v.close();});

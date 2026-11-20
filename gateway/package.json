@@ -1,0 +1,12 @@
+{
+  "name": "secondbrain-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Optional OAuth gateway: lets ChatGPT and claude.ai search SecondBrain over a public HTTPS address (Tailscale Funnel or your domain)",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "express": "5.3.0",
+    "zod": "4.6.7"
+  }
+}

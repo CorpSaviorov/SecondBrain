@@ -1,0 +1,24 @@
+{
+  "purpose": "Preserve existing deterministic search/normalization behavior without runtime dependency on Obsidian or Gateway",
+  "modules": [
+    {
+      "module": "lexical.mjs",
+      "source": "vault-lexical.mjs",
+      "sha256": "12d6f76e0265bd86c9323e55957674ae93741bc6cb683c6b822a39bf644ccf8c"
+    },
+    {
+      "module": "ranking.mjs",
+      "source": "vault-ranking.mjs",
+      "sha256": "449baff02ebe0f2f83828883e8bd0e0c5a5272ff001d591b152f5e137e3fe061"
+    },
+    {
+      "module": "stream.mjs",
+      "source": "vault-stream.mjs",
+      "sha256": "6c3c2dbbb4bcba38a8ee60144d0930a2e1408acb90d8349acd4dd913d55f8c9b"
+    },
+    {
+      "module": "python/intake.py",
+      "sha256": "aaa0c55c501bb48642b81f6b5d21ab3ca3d29ccdf82859ca31c6b4386c73854d"
+    }
+  ]
+}

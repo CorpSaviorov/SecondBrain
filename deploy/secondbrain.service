@@ -1,0 +1,29 @@
+# systemd unit for SecondBrain on Linux (VPS). Install:
+#   sudo cp deploy/secondbrain.service /etc/systemd/system/
+#   sudo nano /etc/systemd/system/secondbrain.service   # проверьте User, пути и BRAIN_PUBLIC_ORIGIN
+#   sudo systemctl daemon-reload && sudo systemctl enable --now secondbrain
+[Unit]
+Description=SecondBrain local memory server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=brain
+WorkingDirectory=/home/brain/SecondBrain/app
+ExecStart=/usr/bin/node /home/brain/SecondBrain/app/server.mjs
+# Адрес, по которому вы открываете панель (Tailscale или домен за Caddy). Несколько — через запятую.
+Environment=BRAIN_PUBLIC_ORIGIN=https://brain.example.ru
+# Папка заметок (например, синхронизированная Syncthing). Можно поменять позже в панели.
+Environment=BRAIN_OBSIDIAN_ROOT=/home/brain/notes
+Restart=always
+RestartSec=5
+# Ограничения: сервис видит только свою домашнюю папку.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=tmpfs
+BindPaths=/home/brain
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

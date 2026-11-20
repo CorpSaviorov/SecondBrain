@@ -1,0 +1,225 @@
+[
+ {
+  "title": "Выбор ноутбука для работы",
+  "create_time": 1761900000,
+  "update_time": 1761900360,
+  "conversation_id": "37d2e1d7-e3a1-5a5a-a000-e0715e0113bc",
+  "current_node": "283aaadb-cfc0-5511-9e73-72bd9161e0e5",
+  "mapping": {
+   "e3077a7d-e788-5e2f-8a0c-94cc3f270a0e": {
+    "id": "e3077a7d-e788-5e2f-8a0c-94cc3f270a0e",
+    "parent": null,
+    "children": [
+     "ef7a5e34-c674-5acf-9031-2a5bcc227b2d"
+    ],
+    "message": {
+     "id": "e3077a7d-e788-5e2f-8a0c-94cc3f270a0e",
+     "author": {
+      "role": "user"
+     },
+     "create_time": 1761900000,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Помоги выбрать ноутбук до 120 тысяч: работаю с кодом и иногда монтирую видео."
+      ]
+     }
+    }
+   },
+   "ef7a5e34-c674-5acf-9031-2a5bcc227b2d": {
+    "id": "ef7a5e34-c674-5acf-9031-2a5bcc227b2d",
+    "parent": "e3077a7d-e788-5e2f-8a0c-94cc3f270a0e",
+    "children": [
+     "7271c777-1345-5e31-88dd-819c09ec35a2"
+    ],
+    "message": {
+     "id": "ef7a5e34-c674-5acf-9031-2a5bcc227b2d",
+     "author": {
+      "role": "assistant"
+     },
+     "create_time": 1761900090,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Для кода и лёгкого монтажа хватит 16 ГБ памяти и SSD на 1 ТБ. Смотрите на процессоры последних двух поколений и экран с хорошей цветопередачей."
+      ]
+     }
+    }
+   },
+   "7271c777-1345-5e31-88dd-819c09ec35a2": {
+    "id": "7271c777-1345-5e31-88dd-819c09ec35a2",
+    "parent": "ef7a5e34-c674-5acf-9031-2a5bcc227b2d",
+    "children": [
+     "283aaadb-cfc0-5511-9e73-72bd9161e0e5"
+    ],
+    "message": {
+     "id": "7271c777-1345-5e31-88dd-819c09ec35a2",
+     "author": {
+      "role": "user"
+     },
+     "create_time": 1761900180,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Решил: беру модель с 32 ГБ памяти, переплачу 15 тысяч, но хватит на годы."
+      ]
+     }
+    }
+   },
+   "283aaadb-cfc0-5511-9e73-72bd9161e0e5": {
+    "id": "283aaadb-cfc0-5511-9e73-72bd9161e0e5",
+    "parent": "7271c777-1345-5e31-88dd-819c09ec35a2",
+    "children": [],
+    "message": {
+     "id": "283aaadb-cfc0-5511-9e73-72bd9161e0e5",
+     "author": {
+      "role": "assistant"
+     },
+     "create_time": 1761900270,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Разумно: 32 ГБ снимут ограничения при монтаже и работе с виртуальными машинами."
+      ]
+     }
+    }
+   }
+  },
+  "_secondbrain_project_name": "Покупки"
+ },
+ {
+  "title": "План запуска Telegram-канала",
+  "create_time": 1762600000,
+  "update_time": 1762600270,
+  "conversation_id": "c796758d-4115-566a-a579-a5dab1a73c03",
+  "current_node": "e320eb4c-cd09-5ca9-80fa-95f4ae28a036",
+  "mapping": {
+   "da08aa27-b557-5964-8fae-98321d8cb548": {
+    "id": "da08aa27-b557-5964-8fae-98321d8cb548",
+    "parent": null,
+    "children": [
+     "52c9eb92-4695-5f3e-8d98-3a04737d6ee7"
+    ],
+    "message": {
+     "id": "da08aa27-b557-5964-8fae-98321d8cb548",
+     "author": {
+      "role": "user"
+     },
+     "create_time": 1762600000,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Хочу завести канал про ИИ-инструменты. Как часто постить на старте?"
+      ]
+     }
+    }
+   },
+   "52c9eb92-4695-5f3e-8d98-3a04737d6ee7": {
+    "id": "52c9eb92-4695-5f3e-8d98-3a04737d6ee7",
+    "parent": "da08aa27-b557-5964-8fae-98321d8cb548",
+    "children": [
+     "e320eb4c-cd09-5ca9-80fa-95f4ae28a036"
+    ],
+    "message": {
+     "id": "52c9eb92-4695-5f3e-8d98-3a04737d6ee7",
+     "author": {
+      "role": "assistant"
+     },
+     "create_time": 1762600090,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "На старте 3 поста в неделю: один разбор инструмента, один личный опыт, один короткий лайфхак."
+      ]
+     }
+    }
+   },
+   "e320eb4c-cd09-5ca9-80fa-95f4ae28a036": {
+    "id": "e320eb4c-cd09-5ca9-80fa-95f4ae28a036",
+    "parent": "52c9eb92-4695-5f3e-8d98-3a04737d6ee7",
+    "children": [],
+    "message": {
+     "id": "e320eb4c-cd09-5ca9-80fa-95f4ae28a036",
+     "author": {
+      "role": "user"
+     },
+     "create_time": 1762600180,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Договорились: публикую по вторникам, четвергам и субботам в 10 утра."
+      ]
+     }
+    }
+   }
+  },
+  "_secondbrain_project_name": "Канал"
+ },
+ {
+  "title": "Рецепт сырников",
+  "create_time": 1763200000,
+  "update_time": 1763200270,
+  "conversation_id": "29c2683c-d3bf-5abe-83d6-ee1c32e7f0f6",
+  "current_node": "7f0ddaa2-a47e-5b54-9244-f5c08f981fc4",
+  "mapping": {
+   "ebba5fbc-ad1f-5885-8c9b-3379ae051e35": {
+    "id": "ebba5fbc-ad1f-5885-8c9b-3379ae051e35",
+    "parent": null,
+    "children": [
+     "3c2a5ce6-bc43-5a93-b908-8956163c1454"
+    ],
+    "message": {
+     "id": "ebba5fbc-ad1f-5885-8c9b-3379ae051e35",
+     "author": {
+      "role": "user"
+     },
+     "create_time": 1763200000,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Как сделать сырники, чтобы не разваливались?"
+      ]
+     }
+    }
+   },
+   "3c2a5ce6-bc43-5a93-b908-8956163c1454": {
+    "id": "3c2a5ce6-bc43-5a93-b908-8956163c1454",
+    "parent": "ebba5fbc-ad1f-5885-8c9b-3379ae051e35",
+    "children": [
+     "7f0ddaa2-a47e-5b54-9244-f5c08f981fc4"
+    ],
+    "message": {
+     "id": "3c2a5ce6-bc43-5a93-b908-8956163c1454",
+     "author": {
+      "role": "assistant"
+     },
+     "create_time": 1763200090,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Творог 9% отжать, на 500 г — одно яйцо, 2–3 ложки муки, щепотка соли. Жарить на среднем огне под крышкой."
+      ]
+     }
+    }
+   },
+   "7f0ddaa2-a47e-5b54-9244-f5c08f981fc4": {
+    "id": "7f0ddaa2-a47e-5b54-9244-f5c08f981fc4",
+    "parent": "3c2a5ce6-bc43-5a93-b908-8956163c1454",
+    "children": [],
+    "message": {
+     "id": "7f0ddaa2-a47e-5b54-9244-f5c08f981fc4",
+     "author": {
+      "role": "user"
+     },
+     "create_time": 1763200180,
+     "content": {
+      "content_type": "text",
+      "parts": [
+       "Получилось! Запомни: в следующий раз добавить ваниль."
+      ]
+     }
+    }
+   }
+  }
+ }
+]

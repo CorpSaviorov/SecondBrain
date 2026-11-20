@@ -1,0 +1,24 @@
+# systemd unit for the SecondBrain gateway (ChatGPT / claude.ai connectors). Needs gateway/config.json
+# (npm run gateway:setup) and dependencies (npm run setup:gateway). Install:
+#   sudo cp deploy/secondbrain-gateway.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now secondbrain-gateway
+[Unit]
+Description=SecondBrain gateway for ChatGPT and Claude connectors
+After=network-online.target secondbrain.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=brain
+WorkingDirectory=/home/brain/SecondBrain/gateway
+ExecStart=/usr/bin/node /home/brain/SecondBrain/gateway/server.mjs
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=tmpfs
+BindPaths=/home/brain
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

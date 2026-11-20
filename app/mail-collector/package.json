@@ -1,0 +1,7 @@
+{
+  "name": "secondbrain-mail-reader",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Optional standalone read-only IMAP source for SecondBrain",
+  "dependencies": {"imapflow": "2.12.1", "mailparser": "3.14.5", "html-to-text": "10.0.1"}
+}

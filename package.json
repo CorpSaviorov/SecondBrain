@@ -1,0 +1,24 @@
+{
+  "name": "secondbrain",
+  "version": "1.1.0",
+  "description": "Локальная «вторая память» для ИИ: чаты ChatGPT, Claude, Codex, Claude Code, почта и заметки в одной базе с поиском через MCP",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "setup": "npm run setup:mail && npm run setup:cloud",
+    "setup:mail": "npm ci --prefix app/mail-collector --no-audit --no-fund",
+    "setup:cloud": "npm ci --prefix app/cloud-collector --no-audit --no-fund",
+    "setup:gateway": "npm ci --prefix gateway --no-audit --no-fund",
+    "test": "node --test \"app/**/*.test.mjs\"",
+    "check": "node app/tools/demo-check.mjs",
+    "check:gateway": "node gateway/selftest.mjs",
+    "start": "node app/server.mjs",
+    "import": "node app/tools/import-export.mjs",
+    "gateway:setup": "node gateway/setup.mjs",
+    "gateway": "node gateway/server.mjs",
+    "gateway:approve": "node gateway/approve.mjs",
+    "gateway:status": "node gateway/control.mjs status"
+  },
+  "license": "MIT"
+}

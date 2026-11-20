@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0f1115">
+<title>Второй мозг</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" id="favicon">
+<link rel="preload" href="/fonts/inter-tight-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/app.css">
+<script>try{const a=localStorage.getItem("accent");if(a&&a!=="orange")document.documentElement.dataset.accent=a;}catch{}</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <symbol id="i-overview" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></symbol>
+ <symbol id="i-graph" viewBox="0 0 16 16"><circle cx="4" cy="4" r="1.8"/><circle cx="12" cy="5" r="1.8"/><circle cx="7" cy="12" r="1.8"/><path d="M5.7 4.3l4.6.5M5 5.6l1.4 4.7M10.9 6.5L8.3 10.6"/></symbol>
+ <symbol id="i-projects" viewBox="0 0 16 16"><path d="M2 4.5c0-.8.7-1.5 1.5-1.5h2.8l1.4 1.5h4.8c.8 0 1.5.7 1.5 1.5v5.5c0 .8-.7 1.5-1.5 1.5h-9c-.8 0-1.5-.7-1.5-1.5z"/></symbol>
+ <symbol id="i-records" viewBox="0 0 16 16"><path d="M5 4h9M5 8h9M5 12h9"/><circle cx="2.3" cy="4" r=".6"/><circle cx="2.3" cy="8" r=".6"/><circle cx="2.3" cy="12" r=".6"/></symbol>
+ <symbol id="i-processing" viewBox="0 0 16 16"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"/></symbol>
+ <symbol id="i-sources" viewBox="0 0 16 16"><path d="M6 2v3M10 2v3M4.5 5h7v2.5a3.5 3.5 0 0 1-7 0zM8 11v3"/></symbol>
+ <symbol id="i-settings" viewBox="0 0 16 16"><path d="M2 4h7M12 4h2M2 12h2M7 12h7"/><circle cx="10.5" cy="4" r="1.5"/><circle cx="5.5" cy="12" r="1.5"/><path d="M2 8h3M8 8h6"/><circle cx="6.5" cy="8" r="1.5"/></symbol>
+ <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></symbol>
+ <symbol id="i-close" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></symbol>
+ <symbol id="i-menu" viewBox="0 0 16 16"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></symbol>
+ <symbol id="i-sync" viewBox="0 0 16 16"><path d="M13 7.5A5 5 0 0 0 4.2 4.6L3 6M3 8.5a5 5 0 0 0 8.8 2.9L13 10M3 3v3h3M13 13v-3h-3"/></symbol>
+ <symbol id="i-expand" viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5L9 7M2.5 13.5L7 9"/></symbol>
+ <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+ <symbol id="i-minus" viewBox="0 0 16 16"><path d="M3 8h10"/></symbol>
+ <symbol id="i-fit" viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10"/></symbol>
+ <symbol id="i-palette" viewBox="0 0 16 16"><path d="M8 2a6 6 0 1 0 0 12c.9 0 1.3-.6 1-1.3-.3-.8.2-1.7 1.1-1.7H12a2 2 0 0 0 2-2A6 6 0 0 0 8 2z"/><circle cx="5" cy="7" r=".8"/><circle cx="8" cy="5" r=".8"/><circle cx="11" cy="7" r=".8"/></symbol>
+ <symbol id="i-pause" viewBox="0 0 16 16"><path d="M5.5 3.5v9M10.5 3.5v9"/></symbol>
+</svg>
+
+<header class="topbar">
+ <button id="menu-toggle" class="icon-btn" aria-label="Меню" aria-expanded="false"><svg class="i"><use href="#i-menu"/></svg></button>
+ <span class="wordmark"><span class="mark" aria-hidden="true"></span>Второй мозг</span>
+ <button class="icon-btn" id="topbar-search" aria-label="Поиск"><svg class="i"><use href="#i-search"/></svg></button>
+</header>
+
+<aside class="sidebar" id="sidebar">
+ <a class="brand" href="#overview"><span class="mark" aria-hidden="true"></span>Второй мозг</a>
+ <form id="search-form" class="search" role="search">
+  <svg class="i"><use href="#i-search"/></svg>
+  <input id="search" type="search" placeholder="Найти в памяти" autocomplete="off" aria-label="Поиск по памяти">
+  <kbd>/</kbd>
+ </form>
+ <nav aria-label="Разделы">
+  <button class="nav" data-view="overview"><svg class="i"><use href="#i-overview"/></svg>Обзор</button>
+  <button class="nav" data-view="graph"><svg class="i"><use href="#i-graph"/></svg>Граф</button>
+  <button class="nav" data-view="projects"><svg class="i"><use href="#i-projects"/></svg>Проекты</button>
+  <button class="nav" data-view="records"><svg class="i"><use href="#i-records"/></svg>Записи<b id="nav-count">—</b></button>
+  <hr>
+  <button class="nav" data-view="processing"><svg class="i"><use href="#i-processing"/></svg>Обработка<b id="nav-queue"></b></button>
+  <button class="nav" data-view="connections"><svg class="i"><use href="#i-sources"/></svg>Источники</button>
+  <button class="nav" data-view="model"><svg class="i"><use href="#i-settings"/></svg>Настройки</button>
+ </nav>
+ <div class="providers-head">Источники <button id="clear-provider" class="link">Все</button></div>
+ <div id="providers" class="providers"></div>
+ <button class="appearance-btn" id="appearance-btn" type="button" aria-expanded="false" aria-controls="accent-pop"><svg class="i"><use href="#i-palette"/></svg>Оформление<i></i></button>
+ <div class="sync-status" id="sync-status"><div><span class="dot" id="sync-dot"></span><span id="footer-status">Подключаемся к базе</span></div><small id="sync-detail"></small></div>
+</aside>
+<div class="scrim" id="scrim" hidden></div>
+<div id="accent-pop" class="accent-pop" hidden><h3>Цвет акцента</h3><div class="accent-picker" role="radiogroup" aria-label="Цвет акцента" data-accent-picker></div></div>
+
+<main id="main">
+ <div class="page-head">
+  <div class="titles"><h1 id="page-title">Обзор</h1><p id="page-description"></p></div>
+  <div class="head-actions"><span id="date-label" class="muted"></span><button id="sync" class="btn"><svg class="i"><use href="#i-sync"/></svg><span>Обновить</span></button><button id="run-processing" class="btn primary">Обработать</button></div>
+ </div>
+
+ <div id="stats" class="strip" hidden></div>
+
+ <section id="reference-filters" class="filters">
+  <div id="source-tabs" class="chips"></div>
+  <div class="filter-row">
+   <div class="segmented" role="group" aria-label="Период"><button class="active" data-period="0">Всё время</button><button data-period="90">90 дней</button><button data-period="30">30 дней</button></div>
+   <select id="project-filter" aria-label="Проект"><option value="">Все проекты</option></select>
+  </div>
+ </section>
+
+ <section id="overview-view" class="view" hidden>
+  <div class="ov-grid">
+   <article class="panel chart-panel">
+    <div class="panel-head"><h2>Записи по неделям</h2><span id="timeline-total" class="muted"></span></div>
+    <div class="chart-body"><div id="timeline" class="weekly" role="img" aria-label="Число записей по неделям"></div><div id="timeline-legend" class="legend"></div></div>
+   </article>
+   <article class="panel">
+    <div class="panel-head"><h2>Свежее</h2><button class="link nav" data-view="records">Все записи</button></div>
+    <div id="recent" class="recent"></div>
+   </article>
+   <article class="panel span-2">
+    <div class="panel-head"><h2>Источники</h2><button class="link nav" data-view="connections">Подключения</button></div>
+    <div id="overview-connectors" class="table-wrap"></div>
+   </article>
+   <article class="panel">
+    <div class="panel-head"><h2>Проекты</h2><button class="link nav" data-view="projects">Все проекты</button></div>
+    <div id="top-projects" class="bars-list"></div>
+   </article>
+  </div>
+ </section>
+
+ <section id="graph-view" class="view">
+  <div class="graph-toolbar">
+   <form id="graph-search-form" class="search inline"><svg class="i"><use href="#i-search"/></svg><input id="graph-find" placeholder="Найти на графе" aria-label="Найти на графе"><small id="graph-find-result" role="status"></small></form>
+   <div class="toolbar-right">
+    <button id="network-local" class="btn ghost">Только связи выбранного</button>
+    <label class="check"><input type="checkbox" id="network-labels"> Подписи</label>
+    <label class="check"><input type="checkbox" id="network-groups"> Цвета групп</label>
+    <label class="range">Точки <input id="graph-size" type="range" min="4" max="10" step="0.5" value="6" aria-label="Размер точек"></label>
+    <select id="graph-limit" aria-label="Число записей на графе"><option value="400">400 записей</option><option value="900">900 записей</option><option value="3000" selected>Все записи</option></select>
+   </div>
+  </div>
+  <div class="graph-wrap">
+   <canvas id="graph" aria-label="Граф записей, сгруппированных по проектам"></canvas>
+   <div class="graph-controls">
+    <button id="zoom-in" class="icon-btn" aria-label="Приблизить"><svg class="i"><use href="#i-plus"/></svg></button>
+    <button id="zoom-out" class="icon-btn" aria-label="Отдалить"><svg class="i"><use href="#i-minus"/></svg></button>
+    <button id="fit" class="icon-btn" aria-label="Показать весь граф"><svg class="i"><use href="#i-fit"/></svg></button>
+    <button id="pause" class="icon-btn" aria-label="Остановить раскладку"><svg class="i"><use href="#i-pause"/></svg></button>
+    <button id="graph-fullscreen" class="icon-btn" aria-label="На весь экран"><svg class="i"><use href="#i-expand"/></svg></button>
+    <button id="graph-forces-toggle" class="icon-btn" aria-label="Силы графа" aria-expanded="false" aria-controls="graph-forces"><svg class="i"><use href="#i-settings"/></svg></button>
+   </div>
+   <div id="graph-forces" class="graph-panel" hidden>
+    <div class="graph-panel-head"><b>Силы</b><button id="forces-reset" class="link" type="button">Сбросить</button></div>
+    <label class="force"><span>Притяжение к центру</span><output data-for="center"></output><input type="range" data-force="center" min="0" max="3" step="0.05" value="1"></label>
+    <label class="force"><span>Отталкивание</span><output data-for="repel"></output><input type="range" data-force="repel" min="0" max="4" step="0.05" value="1"></label>
+    <label class="force"><span>Сила связей</span><output data-for="link"></output><input type="range" data-force="link" min="0" max="3" step="0.05" value="1"></label>
+    <label class="force"><span>Длина связей</span><output data-for="distance"></output><input type="range" data-force="distance" min="0.3" max="3" step="0.05" value="1"></label>
+   </div>
+   <button id="graph-exit" class="btn fullscreen-exit">Свернуть</button>
+   <div class="graph-caption"><span id="graph-count">Загружаем граф</span><small id="network-note"></small></div>
+   <div id="graph-tooltip" class="graph-tooltip" hidden></div>
+  </div>
+  <p class="hint">Связи логические: ссылки между заметками, близость по смыслу карточек и проекты-хабы. Наведите на точку, чтобы увидеть её соседей; перетащите — связанные записи потянутся следом. Клик по хабу открывает записи проекта.</p>
+ </section>
+
+ <section id="records-view" class="view" hidden>
+  <div class="section-bar">
+   <h2 id="results-title">Записи</h2>
+   <div id="active-filters" class="active-filters" aria-label="Активные фильтры"></div>
+   <div class="record-filters">
+    <label class="check"><input id="reviewed-only" type="checkbox"> С карточкой</label>
+    <label class="check"><input id="pinned-only" type="checkbox"> Избранное</label>
+    <label class="check"><input id="service-only" type="checkbox"> Только служебные письма</label>
+    <select id="ranking" aria-label="Порядок"><option value="balanced">Релевантность и свежесть</option><option value="relevance">По релевантности</option><option value="recent">Сначала новые</option></select>
+    <button class="btn ghost nav" data-view="assets">Вложения</button>
+   </div>
+  </div>
+  <div id="records" class="list card-list"></div>
+  <button id="more-records" class="btn more" hidden>Показать ещё</button>
+ </section>
+
+ <section id="projects-view" class="view" hidden>
+  <div id="projects" class="project-grid"></div>
+ </section>
+
+ <section id="assets-view" class="view" hidden>
+  <div class="section-bar"><h2>Вложения</h2><span id="asset-count" class="muted"></span><button class="btn ghost nav" data-view="records">Назад к записям</button></div>
+  <div id="assets" class="list card-list"></div>
+ </section>
+
+ <section id="connections-view" class="view" hidden>
+  <div class="section-bar"><h2>Подключения</h2><button id="import-button" class="btn">Импорт JSON</button><input id="import-file" type="file" accept=".json" hidden></div>
+  <div id="connectors" class="connection-grid"></div>
+  <p class="hint">Каждый источник включается отдельно. Отключение останавливает сбор, сохранённые записи остаются. Сбор идёт каждые 15 минут, пока приложение запущено.</p>
+ </section>
+
+ <section id="processing-view" class="view" hidden>
+  <div class="split">
+   <div class="split-side">
+    <article class="panel processor-panel">
+     <div class="processor-head"><div><h2>Карточки Luna</h2><p class="muted">Новые и изменённые записи разбираются автоматически. Каждый пункт карточки сверяется с точной цитатой источника.</p></div><label class="switch"><input id="processing-enabled" type="checkbox" aria-label="Автоматическая обработка"><span></span></label></div>
+     <div id="processing-state" class="state-line" role="status"></div>
+     <div id="processing-counts" class="strip compact"></div>
+     <div id="processing-held" class="held-note"></div>
+     <div class="actions"><button id="processing-run" class="btn primary">Обработать сейчас</button><button id="processing-settings" class="btn ghost">Настройки модели</button><button id="processing-refresh" class="btn ghost">Обновить</button><button id="processing-retry-all" class="btn ghost" type="button" hidden></button></div>
+     <p id="processing-last" class="muted small"></p>
+    </article>
+    <article class="panel speed-panel">
+     <div class="panel-head"><h2>Скорость</h2></div>
+     <div class="eta"><b id="eta-value">—</b><span id="eta-detail"></span></div>
+     <label class="field"><span>Одновременно</span><div class="slider-row"><input id="speed-lanes" type="range" min="1" max="8" step="1" value="8" aria-label="Число одновременных запросов"><output id="speed-lanes-value" for="speed-lanes"></output></div><small>Многие провайдеры принимают до 8 одновременных запросов на один ключ, больше не ускорит. Меньше потоков — медленнее и равномернее расход.</small></label>
+     <label class="field"><span>Не больше в час</span><select id="speed-cap"><option value="0">Без ограничения</option><option value="60">60 запросов</option><option value="120">120 запросов</option><option value="240">240 запросов</option><option value="480">480 запросов</option></select><small id="speed-cap-note"></small></label>
+    </article>
+   </div>
+   <div class="split-main">
+    <div class="section-bar"><h2>Очередь и последние результаты</h2></div>
+    <div id="processing-queue" class="list card-list"></div>
+   </div>
+  </div>
+ </section>
+
+ <section id="model-view" class="view" hidden>
+  <div class="settings-grid">
+   <article class="panel">
+    <div class="panel-head"><h2>Модель Luna</h2><span class="badge">OpenAI-совместимый API</span></div>
+    <form id="model-form" class="form">
+     <label class="field"><span>API-ключ</span><input id="model-key" type="password" autocomplete="new-password" placeholder="Вставьте ключ, чтобы заменить"><small id="model-key-state">Ключ не добавлен</small></label>
+      <label class="field"><span>Адрес API</span><input id="model-base-url" type="url" value="https://api.openai.com/v1" required><small>OpenAI, OpenRouter, прокси или http://localhost:11434/v1 для Ollama</small></label>
+     <div class="form-grid">
+      <label class="field"><span>Модель</span><input id="model-model" list="model-list" placeholder="id модели из каталога провайдера" required><datalist id="model-list"></datalist></label>
+      <label class="field"><span>Рассуждения</span><select id="model-reasoning"><option value="low">Низкий</option><option value="medium">Средний</option><option value="high">Высокий</option><option value="default">Как у провайдера</option></select></label>
+     </div>
+     <p class="muted small">Пустое поле ключа оставляет прежний ключ. Ключ хранится на этом компьютере и на страницу не возвращается.</p>
+     <div class="actions"><button class="btn primary" id="save-model" type="submit">Сохранить</button><button class="btn ghost" id="check-model" type="button">Проверить подключение</button></div>
+     <div id="model-check-result" class="state-line" role="status"></div>
+     <details class="disclosure"><summary>Формат API и учёт расходов</summary>
+      <label class="field"><span>Формат запросов</span><select id="model-protocol"><option value="responses">Responses</option><option value="chat-completions">Chat Completions</option></select></label>
+      <label class="field"><span>Потолок расходов в месяц, $</span><input id="model-budget" type="number" value="5" min="0.000001" step="any" required></label>
+      <label class="field"><span>Способ учёта</span><select id="model-billing-mode"><option value="balance-units">Коэффициент баланса провайдера</option><option value="usd-tokens">Цены входа и выхода в $</option></select></label>
+      <div id="model-balance-fields"><div class="form-grid"><label class="field"><span>Коэффициент модели</span><input id="model-multiplier" type="number" min="0.000001" step="any"></label><label class="field"><span>₽ за миллион единиц</span><input id="model-unit-price" type="number" min="0.000001" step="any"></label></div><div class="form-grid"><label class="field"><span>₽ за $1</span><input id="model-fx" type="number" min="0.000001" step="any"></label><label class="field"><span>Запас, ×</span><input id="model-margin" type="number" min="1" max="5" step="0.05"></label></div><p id="model-billing-basis" class="muted small"></p></div>
+      <div id="model-usd-fields"><div class="form-grid"><label class="field"><span>Вход, $ за 1M токенов</span><input id="model-input" type="number" min="0" step="any" placeholder="Не указано"></label><label class="field"><span>Выход, $ за 1M токенов</span><input id="model-output" type="number" min="0" step="any" placeholder="Не указано"></label></div></div>
+     </details>
+    </form>
+   </article>
+   <aside class="settings-side">
+    <article class="panel"><div class="panel-head"><h2>Расход за месяц</h2></div><div id="model-spend" class="big-number">$0 / $5</div><p class="muted small">Оценка по указанным тарифам, месяц по Москве. Точные списания — в кабинете провайдера.</p><div id="model-processing-state" class="state-line"></div></article>
+    <article class="panel"><div class="panel-head"><h2>Что отправляется модели</h2></div><p class="muted small">Только текст записи, которую разбирает Luna. Поиск, граф и сбор работают без модели.</p></article>
+    <article class="panel"><div class="panel-head"><h2>Оформление</h2></div><div class="accent-picker" role="radiogroup" aria-label="Цвет акцента" data-accent-picker></div></article>
+   </aside>
+  </div>
+ </section>
+</main>
+
+<aside id="detail" class="detail" hidden aria-label="Запись">
+ <div class="detail-top"><span id="detail-provider" class="badge"></span><button id="close-detail" class="icon-btn" aria-label="Закрыть"><svg class="i"><use href="#i-close"/></svg></button></div>
+ <div id="detail-content"></div>
+</aside>
+<div id="toast" class="toast" role="status" hidden></div>
+<script src="/brain-app.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+# Ваши данные — никогда не в git
+store/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+secrets/
+*.key
+
+# Зависимости и служебные файлы
+node_modules/
+__pycache__/
+*.log
+*.log.previous
+app/server.pid
+.env
+
+# Локальные копии базы
+backups/
+
+# Шлюз: адрес и выданные доступы — у каждого свои
+gateway/config.json
+gateway/private/

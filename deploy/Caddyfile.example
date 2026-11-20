@@ -1,0 +1,16 @@
+# Caddy: HTTPS (Let's Encrypt) + пароль перед SecondBrain.
+# 1) Замените brain.example.ru на ваш домен (A-запись домена → IP сервера).
+# 2) Хеш пароля: caddy hash-password   → вставьте вместо HASH.
+# 3) sudo cp deploy/Caddyfile.example /etc/caddy/Caddyfile && sudo systemctl reload caddy
+brain.example.ru {
+	basic_auth {
+		me HASH
+	}
+	reverse_proxy 127.0.0.1:8877
+}
+
+# Шлюз для ChatGPT и Claude: отдельный поддомен, БЕЗ basic_auth (шлюз сам требует OAuth и подтверждения
+# владельца). Публикуется только порт 8787; порт управления 8788 — никогда.
+mcp.example.ru {
+	reverse_proxy 127.0.0.1:8787
+}

@@ -1,0 +1,1 @@
+{"name":"secondbrain-cloud-collector","private":true,"version":"1.0.0","main":"main.cjs","scripts":{"postinstall":"node install-electron.cjs"},"dependencies":{"electron":"45.3.3"}}
