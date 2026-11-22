@@ -182,3 +182,7 @@ const timer=setInterval(()=>{collect().catch(e=>store.state('local-sync','error'
 const mailNeedsBackfill=id=>{const r=store.db.prepare('SELECT status,payload FROM connector_state WHERE id=?').get(id);if(!r)return false;if(r.status==='backfill')return true;let p={};try{p=JSON.parse(r.payload||'{}');}catch{}return r.status==='partial'&&p.catalog_scan_complete===false&&Number(p.remaining_folders)>0&&Number(p.captured)>0;};
 let mailBackfillBusy=false;setInterval(async()=>{if(mailBackfillBusy||syncing)return;mailBackfillBusy=true;try{for(const c of registry.list()){if(c.driver!=='imap-mail'||!c.enabled)continue;if(mailNeedsBackfill(c.id))await registry.collect(c.id);}}catch(e){console.error('mail backfill',e.message);}finally{mailBackfillBusy=false;}},60*1000).unref();
 let closing=false;async function shutdown(){if(closing)return;closing=true;clearInterval(timer);await cardWorker.stop();server.close(()=>{store.close();process.exit();});}process.on('SIGINT',shutdown);process.on('SIGTERM',shutdown);
+// 2026-11-21: warm the graph / «Похожие записи» / project caches in the background after data changes (sync, Luna
+// cards), so the first record click or graph open after a change does not pay for the rebuild.
+let warmFp=null;const warm=()=>{try{const fp=recordViews.fingerprint();if(fp===warmFp)return;recordViews.network({limit:3000});recordViews.neighbours();recordViews.projects();warmFp=fp;}catch(e){console.error('cache warm',e.message);}};
+setTimeout(warm,1500).unref();setInterval(warm,20000).unref();

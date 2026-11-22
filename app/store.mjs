@@ -20,7 +20,7 @@ export class BrainStore{
   this.filename=filename;
   if(filename!==':memory:')fs.mkdirSync(path.dirname(filename),{recursive:true});
   this.db=new DatabaseSync(filename,{timeout:10000});
-  this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=10000;
+  this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA journal_size_limit=67108864; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=10000;
    CREATE TABLE IF NOT EXISTS brain_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
    INSERT OR IGNORE INTO brain_meta VALUES('schema','secondbrain-canonical-v1');
    CREATE TABLE IF NOT EXISTS sources(id TEXT PRIMARY KEY,provider TEXT NOT NULL,external_id TEXT NOT NULL,account TEXT NOT NULL,

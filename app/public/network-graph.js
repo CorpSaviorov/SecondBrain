@@ -2,11 +2,15 @@ import {prepareLayout,Simulation,spreadRadius} from './network-layout.js';
 // Graph view modelled on Obsidian's (user request 2026-11-18): grey nodes sized by links, thin grey links, hubs as stars,
 // orphans ring the linked mass; hover lights the node, its links and neighbours in purple and fades the rest; captions
 // appear when zoomed in. Dragging a node pulls its neighbours through the live simulation.
-const PALETTE={bg:'#1e1e1e',node:'#a7a7a7',hub:'#cfcfcf',line:'#7a7a7a',accent:'#8b6cf6',accentLine:'#8b6cf6',text:'#c8c8c8',neighbor:'#e2e2e2',match:'#3fb67f'};
+// Canvas palettes per theme (2026-11-21): «Графит» keeps the Obsidian-like greys, «Дневное стекло» draws ink on white.
+export const GRAPH_PALETTES={
+ graphite:{bg:'#0f1218',node:'#a7adb8',hub:'#d3d7df',line:'#6f7684',accent:'#8b6cf6',accentLine:'#8b6cf6',text:'#c8ccd4',neighbor:'#eef0f4',match:'#3fb67f',focusText:'#ffffff'},
+ daylight:{bg:'#fbfcff',node:'#8e97b0',hub:'#4a5574',line:'#a9b1c6',accent:'#303da3',accentLine:'#303da3',text:'#3a4560',neighbor:'#1b2541',match:'#1e9e62',focusText:'#1b2541'}};
 const GROUPS={obsidian:'#b7beff',chatgpt:'#8b95c9',claude:'#76a3bd',codex:'#5f6bb8','claude-code':'#8a919c',email:'#aab1bb',hub:'#cfcfcf'};
 const FONT="'Inter Tight','Segoe UI Variable Text','Segoe UI',system-ui,sans-serif";
 export const projectName=v=>{const s=String(v||'');if(!/^[A-Z]--Users-/.test(s))return s;if(/scratch-workspaces/.test(s))return 'Временные сессии';return s.replace(/^[A-Z]--Users-[^-]+-/,'').replace(/^(Desktop|Documents)-/,'').replace(/-/g,' ');};
 export class NetworkGraph{
+ get P(){return this.palette||GRAPH_PALETTES.graphite;}
  constructor(canvas,{onSelect=()=>{}}={}){
   this.canvas=canvas;this.ctx=canvas.getContext('2d');this.onSelect=onSelect;this.scale=1;this.pan={x:0,y:0};this.paused=false;this.local=false;this.pointSize=6;this.labels=false;this.groups=false;this.highlight=null;this.fade=0;this.lastFocus=null;this.userMoved=false;this.forces={center:1,repel:1,link:1,distance:1};
   new ResizeObserver(()=>this.resize()).observe(canvas.parentElement);
@@ -49,20 +53,25 @@ export class NetworkGraph{
   if(!this.paused)this.sim.tick();
   if(this.follow){const tx=this.width*.5-this.follow.x*this.scale,ty=this.height*.5-this.follow.y*this.scale;this.pan.x+=(tx-this.pan.x)*.15;this.pan.y+=(ty-this.pan.y)*.15;if(!this.sim.running&&Math.abs(tx-this.pan.x)<1)this.follow=null;}
   const c=this.ctx,s=this.scale,focus=this.hover||this.selected;
+  // 2026-11-21: a settled, untouched graph is not redrawn 60 times a second (it kept a CPU core busy on «Граф»).
+  const settled=!this.sim.running&&!this.follow&&!this.drag&&Math.abs((focus?1:0)-this.fade)<.005,
+   sig=[s,this.pan.x,this.pan.y,this.width,this.height,focus?.id,this.lastFocus?.id,this.highlight,this.labels,this.groups,this.local,this.pointSize,this.palette,this.accent,this.groupColors,this.nodes].map(String).join('|')+(this.highlight?.size??'');
+  if(settled&&sig===this.lastSig&&this.lastHighlight===this.highlight&&this.lastNodes===this.nodes&&this.lastPalette===this.palette&&this.lastColors===this.groupColors)return;
+  this.lastSig=sig;this.lastHighlight=this.highlight;this.lastNodes=this.nodes;this.lastPalette=this.palette;this.lastColors=this.groupColors;
   // Smooth hover fade (Obsidian animates the dimming in and out).
   if(focus)this.lastFocus=focus;this.fade+=((focus?1:0)-this.fade)*.18;if(this.fade<.01&&!focus)this.lastFocus=null;
   const f=this.lastFocus,near=f?this.neighbors.get(f):null,dim=1-.82*this.fade;
   const visible=n=>!this.local||!this.selected||n===this.selected||this.neighbors.get(this.selected).has(n);
-  c.fillStyle=PALETTE.bg;c.fillRect(0,0,this.width,this.height);c.save();c.translate(this.pan.x,this.pan.y);c.scale(s,s);
+  c.fillStyle=this.P.bg;c.fillRect(0,0,this.width,this.height);c.save();c.translate(this.pan.x,this.pan.y);c.scale(s,s);
   // Links: plain ones first, the focused node's links on top in accent colour.
-  c.lineWidth=1/s;c.strokeStyle=PALETTE.line;c.globalAlpha=.35*dim;c.beginPath();
+  c.lineWidth=1/s;c.strokeStyle=this.P.line;c.globalAlpha=.35*dim;c.beginPath();
   for(const e of this.edges){if(f&&(e.a===f||e.b===f))continue;if(!visible(e.a)||!visible(e.b))continue;c.moveTo(e.a.x,e.a.y);c.lineTo(e.b.x,e.b.y);}c.stroke();
-  if(f){c.globalAlpha=.9*this.fade;c.strokeStyle=(this.accent||PALETTE.accentLine);c.lineWidth=1.6/s;c.beginPath();for(const e of this.edges)if(e.a===f||e.b===f){c.moveTo(e.a.x,e.a.y);c.lineTo(e.b.x,e.b.y);}c.stroke();}
+  if(f){c.globalAlpha=.9*this.fade;c.strokeStyle=(this.accent||this.P.accentLine);c.lineWidth=1.6/s;c.beginPath();for(const e of this.edges)if(e.a===f||e.b===f){c.moveTo(e.a.x,e.a.y);c.lineTo(e.b.x,e.b.y);}c.stroke();}
   // Nodes.
   const minR=1.6/s;
   for(const n of this.nodes){if(!visible(n))continue;const isF=n===f,isN=near?.has(n),matched=!this.highlight||this.highlight.has(n.id);
    const r=Math.max(this.radius(n),minR);c.globalAlpha=!matched?.15:isF||isN?1:dim;
-   c.fillStyle=isF?(this.accent||PALETTE.accent):this.highlight&&matched?PALETTE.match:isN&&this.fade>.05?PALETTE.neighbor:this.groups?(this.groupColors||GROUPS)[n.provider]||PALETTE.node:n.type==='hub'?PALETTE.hub:PALETTE.node;
+   c.fillStyle=isF?(this.accent||this.P.accent):this.highlight&&matched?this.P.match:isN&&this.fade>.05?this.P.neighbor:this.groups?(this.groupColors||GROUPS)[n.provider]||this.P.node:n.type==='hub'?this.P.hub:this.P.node;
    c.beginPath();c.arc(n.x,n.y,isF?r*1.15:r,0,Math.PI*2);c.fill();}
   // Captions: under the node when zoomed in (fading in between 0.9 and 1.4), always for the focus and its neighbours.
   const textAlpha=Math.max(0,Math.min(1,(s-1.2)/.6));c.textAlign='center';c.textBaseline='top';
@@ -70,7 +79,7 @@ export class NetworkGraph{
   const taken=new Map(),CELL=40,fits=(x,y,w,h)=>{for(let gx=Math.floor((x-w/2)/CELL);gx<=Math.floor((x+w/2)/CELL);gx++)for(let gy=Math.floor(y/CELL);gy<=Math.floor((y+h)/CELL);gy++)for(const b of taken.get(gx+','+gy)||[])if(Math.abs(b.x-x)*2<b.w+w&&y<b.y+b.h&&b.y<y+h)return false;return true;},take=(x,y,w,h)=>{const box={x,y,w,h};for(let gx=Math.floor((x-w/2)/CELL);gx<=Math.floor((x+w/2)/CELL);gx++)for(let gy=Math.floor(y/CELL);gy<=Math.floor((y+h)/CELL);gy++){const k=gx+','+gy;if(!taken.has(k))taken.set(k,[]);taken.get(k).push(box);}};
   const order=[...this.nodes].sort((a,b)=>(b===f)-(a===f)||(b.type==='hub')-(a.type==='hub')||(b.degree||0)-(a.degree||0));
   for(const n of order){if(!visible(n))continue;const isF=n===f,isN=near?.has(n);let a=this.labels||n.type==='hub'?Math.max(textAlpha,n.type==='hub'&&s>.25?.85:0):textAlpha;if(isF)a=Math.max(a,this.fade);else if(isN)a=Math.max(a*dim,a);else a*=dim;if(a<.04)continue;
-   const label=n.type==='hub'?projectName(n.label):n.label,text=label.length>42?label.slice(0,41)+'…':label;c.font=`${isF||n.type==='hub'?600:400} ${(n.type==='hub'?13:12)/s}px ${FONT}`;const sx=n.x*s+this.pan.x,sy=(n.y+Math.max(this.radius(n),minR))*s+this.pan.y+4,w=c.measureText(text).width*s+6,h=16;if(sx<-w||sx>this.width+w||sy<-h||sy>this.height+h)continue;if(!isF&&!fits(sx,sy,w,h))continue;take(sx,sy,w,h);c.globalAlpha=a;c.fillStyle=isF?'#ffffff':PALETTE.text;c.fillText(text,n.x,n.y+Math.max(this.radius(n),minR)+4/s);}
+   const label=n.type==='hub'?projectName(n.label):n.label,text=label.length>42?label.slice(0,41)+'…':label;c.font=`${isF||n.type==='hub'?600:400} ${(n.type==='hub'?13:12)/s}px ${FONT}`;const sx=n.x*s+this.pan.x,sy=(n.y+Math.max(this.radius(n),minR))*s+this.pan.y+4,w=c.measureText(text).width*s+6,h=16;if(sx<-w||sx>this.width+w||sy<-h||sy>this.height+h)continue;if(!isF&&!fits(sx,sy,w,h))continue;take(sx,sy,w,h);c.globalAlpha=a;c.fillStyle=isF?this.P.focusText:this.P.text;c.fillText(text,n.x,n.y+Math.max(this.radius(n),minR)+4/s);}
   c.restore();c.globalAlpha=1;
  }
 }

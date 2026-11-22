@@ -9,9 +9,11 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" id="favicon">
 <link rel="preload" href="/fonts/inter-tight-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/app.css">
-<script>try{const a=localStorage.getItem("accent");if(a&&a!=="orange")document.documentElement.dataset.accent=a;}catch{}</script>
+<link rel="stylesheet" href="/glass.css">
+<script>(()=>{const d=document.documentElement;d.dataset.theme="graphite";try{const a=localStorage.getItem("accent");if(a&&a!=="orange")d.dataset.accent=a;const t=localStorage.getItem("theme");if(t==="daylight"||t==="graphite")d.dataset.theme=t;}catch{}document.querySelector('meta[name=theme-color]')?.setAttribute("content",d.dataset.theme==="daylight"?"#F5F6FB":"#0B0D12");document.querySelector('meta[name=color-scheme]')?.setAttribute("content",d.dataset.theme==="daylight"?"light":"dark");})();</script>
 </head>
 <body>
+<div class="glass-field" aria-hidden="true"></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
  <symbol id="i-overview" viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></symbol>
  <symbol id="i-graph" viewBox="0 0 16 16"><circle cx="4" cy="4" r="1.8"/><circle cx="12" cy="5" r="1.8"/><circle cx="7" cy="12" r="1.8"/><path d="M5.7 4.3l4.6.5M5 5.6l1.4 4.7M10.9 6.5L8.3 10.6"/></symbol>
@@ -61,7 +63,7 @@
  <div class="sync-status" id="sync-status"><div><span class="dot" id="sync-dot"></span><span id="footer-status">Подключаемся к базе</span></div><small id="sync-detail"></small></div>
 </aside>
 <div class="scrim" id="scrim" hidden></div>
-<div id="accent-pop" class="accent-pop" hidden><h3>Цвет акцента</h3><div class="accent-picker" role="radiogroup" aria-label="Цвет акцента" data-accent-picker></div></div>
+<div id="accent-pop" class="accent-pop" hidden><span class="pop-label">Тема</span><div class="theme-picker" data-theme-picker></div><span class="pop-label">Цвет акцента</span><div class="accent-picker" role="radiogroup" aria-label="Цвет акцента" data-accent-picker></div></div>
 
 <main id="main">
  <div class="page-head">
@@ -100,7 +102,7 @@
   </div>
  </section>
 
- <section id="graph-view" class="view">
+ <section id="graph-view" class="view" hidden>
   <div class="graph-toolbar">
    <form id="graph-search-form" class="search inline"><svg class="i"><use href="#i-search"/></svg><input id="graph-find" placeholder="Найти на графе" aria-label="Найти на графе"><small id="graph-find-result" role="status"></small></form>
    <div class="toolbar-right">
@@ -113,6 +115,7 @@
   </div>
   <div class="graph-wrap">
    <canvas id="graph" aria-label="Граф записей, сгруппированных по проектам"></canvas>
+   <div id="graph-loading" class="graph-loading" role="status"><span class="spinner"></span><span>Загружаем граф…</span></div>
    <div class="graph-controls">
     <button id="zoom-in" class="icon-btn" aria-label="Приблизить"><svg class="i"><use href="#i-plus"/></svg></button>
     <button id="zoom-out" class="icon-btn" aria-label="Отдалить"><svg class="i"><use href="#i-minus"/></svg></button>
@@ -217,7 +220,7 @@
    <aside class="settings-side">
     <article class="panel"><div class="panel-head"><h2>Расход за месяц</h2></div><div id="model-spend" class="big-number">$0 / $5</div><p class="muted small">Оценка по указанным тарифам, месяц по Москве. Точные списания — в кабинете провайдера.</p><div id="model-processing-state" class="state-line"></div></article>
     <article class="panel"><div class="panel-head"><h2>Что отправляется модели</h2></div><p class="muted small">Только текст записи, которую разбирает Luna. Поиск, граф и сбор работают без модели.</p></article>
-    <article class="panel"><div class="panel-head"><h2>Оформление</h2></div><div class="accent-picker" role="radiogroup" aria-label="Цвет акцента" data-accent-picker></div></article>
+    <article class="panel"><div class="panel-head"><h2>Оформление</h2></div><div class="theme-picker" data-theme-picker></div><div class="accent-picker" role="radiogroup" aria-label="Цвет акцента" data-accent-picker></div></article>
    </aside>
   </div>
  </section>
@@ -228,6 +231,13 @@
  <div id="detail-content"></div>
 </aside>
 <div id="toast" class="toast" role="status" hidden></div>
+<div id="top-progress" class="top-progress" aria-hidden="true"></div>
+<!-- 2026-11-21: open the section from the address (#connections…) before the first paint, so a reload never flashes
+     another section while the app loads. brain-app.js then fills it. -->
+<script>(()=>{const h=location.hash.slice(1),v=document.getElementById(h+'-view')?h:'overview',n=document.querySelector('.nav[data-view="'+v+'"]');document.body.dataset.view=v;
+for(const e of document.querySelectorAll('.view'))e.hidden=e.id!==v+'-view';for(const e of document.querySelectorAll('.nav'))e.classList.toggle('active',e.dataset.view===v);
+document.getElementById('stats').hidden=v!=='overview';document.getElementById('reference-filters').hidden=!['graph','records'].includes(v);
+if(n)document.getElementById('page-title').textContent=([...n.childNodes].find(x=>x.nodeType===3&&x.textContent.trim())?.textContent||'').trim();})();</script>
 <script src="/brain-app.js" type="module"></script>
 </body>
 </html>

@@ -151,6 +151,19 @@ components:
 
 # Design System: Второй мозг
 
+> **Update 2026-11-21 — Liquid Glass themes.** The console now has two themes, «Графит» (default, dark) and
+> «Дневное стекло» (light), switched in «Оформление» (sidebar) or Settings and remembered in `localStorage` (`theme`,
+> next to `accent`). `public/glass.css`, loaded after `app.css`, re-points the tokens per theme and adds a translucent
+> material only to surfaces that float over content: the sidebar, the sticky page header, the record sheet, popovers,
+> the toast and the graph tools. Reading surfaces (panels, lists, tables) stay opaque. In the light theme every accent
+> is re-mapped to a deeper shade with white text (contrast ≥ 4.5:1); the graph canvas has its own palette per theme.
+> Motion uses two curves without overshoot — `cubic-bezier(.22,1,.36,1)` for light and release,
+> `cubic-bezier(.32,.72,0,1)` for gliding — a shared hover pill and a gliding active pill in the sidebar, a gliding
+> thumb in segmented controls, a cursor light inside buttons (no lift), press `scale .97` in 90 ms, blocks that enter
+> once per navigation with a 45 ms stagger, and a slow field drifting behind the glass. Reduced motion keeps only colour
+> and opacity changes; reduced transparency or no `backdrop-filter` gives solid surfaces. Where the text below says
+> «dark only» or «no light theme», this update supersedes it; everything else (copy, density, icons, data rules) stands.
+
 ## Overview
 
 **Creative North Star: "The Kept Console"**
@@ -162,7 +175,7 @@ Density is a working dashboard's: 14px body, 32px controls, 8 to 24px gaps, tabl
 The system is dark only, the copy is plain short Russian, and every view works at phone width (390px). It deliberately replaced an older purple UI: no glow, no gradients on surfaces, no decorative labels.
 
 **Key Characteristics:**
-- Dark graphite only; `color-scheme: dark`, no light theme.
+- Two themes since 2026-11-21: «Графит» (dark, default) and «Дневное стекло» (light); glass only on floating layers.
 - One accent (indigo) for focus ring, active marker, primary button, switches, meters.
 - Tonal layering, hairline borders, almost no shadows.
 - Inter Tight self-hosted, tabular figures on by default.
@@ -302,7 +315,7 @@ Right drawer on the panel fill with a sticky header, title at 19px, provenance l
 ## Do's and Don'ts
 
 ### Do:
-- **Do** keep the page dark only: graphite ground `#0f1115`, panels `#16191e`, raised `#1c2027`.
+- **Do** keep both themes on the same tokens (`--bg`, `--panel`, `--raised`, `--line`, `--text`…): re-point them in `glass.css`, never hard-code colors in components.
 - **Do** use indigo `#7c8cff` only for focus, selection, toggled state and the single primary action.
 - **Do** build hierarchy with tone steps, 1px hairlines and weights 400 / 500 / 600.
 - **Do** use tabular figures for every number and read every number from the live API.
@@ -312,7 +325,7 @@ Right drawer on the panel fill with a sticky header, title at 19px, provenance l
 - **Do** honor `prefers-reduced-motion` (all transitions off); keep motion to 150ms color and opacity changes and the 200ms ease-out sheet slide.
 
 ### Don't:
-- **Don't** add a light theme or a theme toggle.
+- **Don't** put glass on reading surfaces or stack translucent layers; glass is for what floats over content.
 - **Don't** introduce a second accent, purple glow, or gradient fills on panels and buttons.
 - **Don't** put shadows on panels or cards; shadows are for floating layers only.
 - **Don't** use eyebrow or kicker labels, uppercase tracked labels, or emoji and glyph icons.

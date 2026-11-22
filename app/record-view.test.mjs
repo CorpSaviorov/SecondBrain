@@ -20,5 +20,5 @@ test('related records come from the cached logical graph and are rebuilt only wh
  const s=new BrainStore(':memory:'),v=new RecordViews(s),a=s.ingest(source('a')),b=s.ingest(source('b'));
  for(const r of [a,b])s.attachCards(r.id,r.revision,[{key:'full',reviewed_at:'2026-11-15',payload:{schema:'source-card-v1',reviewer:'gpt-6-luna',sha256:'test-hash',title:'Тест',summary:'Выжимка',keywords:['Рефакторинг'],questions:['Как проверить?'],items:[{kind:'note_statement',text:'Тест',evidence:[{role:'note',quote:'Рефакторинг',start_char:0,end_char:11}]}]}}],'test-hash');
  const rel=v.related(a.id);assert.equal(rel[0].id,b.id);assert.match(rel[0].basis,/рефакторинг/i);
- const cached=v.neighbourCache.map;v.related(b.id);assert.equal(v.neighbourCache.map,cached);
- s.ingest(source('c'));v.related(a.id);assert.notEqual(v.neighbourCache.map,cached);s.close();});
+ const cached=v.neighbours();v.related(b.id);assert.equal(v.neighbours(),cached);assert.equal(v.network({limit:'3000',provider:''}),v.network({limit:3000}));
+ s.ingest(source('c'));v.related(a.id);assert.notEqual(v.neighbours(),cached);s.close();});

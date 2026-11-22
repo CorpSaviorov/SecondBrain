@@ -1,7 +1,9 @@
+import path from 'node:path';
 import {projectGroup} from './project-groups.mjs';
 import {dateMillis} from './lib/ranking.mjs';
 import {serviceCategory,CATEGORY_NAMES} from './lib/mail-filter.mjs';
 import {normalizePhrase,words,searchTerm} from './lib/lexical.mjs';
+const STOP=new Set('это как что для или при его она они оно был была было быть есть нет так уже еще ещё все всё весь вся эти этот эта тот там тут где когда если чтобы через после перед более менее очень можно нужно надо также только просто пользователь пользователя пользователю ассистент ассистента ассистенту сообщил предложил предлагает хочет хотел попросил просит запросил уточнить понять сделать the and for with that this from are was you your have has not but'.split(' ').map(searchTerm));
 const number=(v,fallback)=>Number.isFinite(Number(v))?Number(v):fallback;
 export class RecordViews{
  constructor(store){this.store=store;store.db.exec(`CREATE TABLE IF NOT EXISTS record_annotations(source_id TEXT PRIMARY KEY,note TEXT NOT NULL,pinned INTEGER NOT NULL,version INTEGER NOT NULL,base_revision TEXT NOT NULL,updated_at TEXT NOT NULL);
@@ -27,28 +29,31 @@ export class RecordViews{
  filtered(options={}){
   const since=options.since?dateMillis(options.since):null,until=options.until?dateMillis(options.until):null;
   if(options.since&&since===null||options.until&&until===null)throw Error('Некорректный период');
+  const reviewedSet=['true',true].includes(options.reviewed)?new Set(this.store.db.prepare('SELECT DISTINCT c.source_id id FROM cards c JOIN sources s ON s.id=c.source_id AND s.revision=c.revision').all().map(r=>r.id)):null;
   return this.store.db.prepare('SELECT * FROM sources ORDER BY source_date DESC,title').all().filter(d=>
    (!options.provider||d.provider===options.provider)&&(!options.project||this.group(d).id===options.project)&&
    (since===null||(dateMillis(d.source_date)??-Infinity)>=since)&&(until===null||(dateMillis(d.source_date)??Infinity)<until+86400000)&&
-   (!['true',true].includes(options.reviewed)||Boolean(this.guide(d)))&&(!['true',true].includes(options.pinned)||Boolean(this.annotation(d.id).pinned))&&
+   (!reviewedSet||reviewedSet.has(d.id))&&(!['true',true].includes(options.pinned)||Boolean(this.annotation(d.id).pinned))&&
    (()=>{const mode=options.service||'exclude';if(d.provider!=='email')return mode!=='only';const svc=serviceCategory(this.store.db,d.id);return mode==='only'?Boolean(svc):mode==='include'?true:!svc;})());
  }
  records(options={}){
   const svcMode=options.service==='only'?'only':options.q?'include':'exclude',docs=this.filtered({...options,service:svcMode}),allowed=new Map(docs.map(d=>[d.id,d])),offset=Math.max(0,number(options.offset,0)),limit=Math.max(1,Math.min(100,number(options.limit,30)));
   let rows;if(options.q){const result=this.store.search(options.q,{provider:options.provider||'',ranking:options.ranking||'balanced',limit,offset,since:options.since||undefined,allowed_ids:new Set(allowed.keys()),service:svcMode==='only'?'only':'include'});rows=result.results.map(r=>({...this.brief(allowed.get(r.id)),snippet:r.snippet,score:r.score,rank_factors:r.rank_factors,match_type:r.match_type,...(r.attachment?{attachment:r.attachment}:{})}));return {query:options.q,results:rows,total:result.total,next_offset:offset+limit<result.total?offset+limit:null,search_mode:result.search_mode,model_calls:0};}
-  else rows=docs.map(d=>this.brief(d));
-  return {query:options.q||'',results:rows.slice(offset,offset+limit),total:rows.length,next_offset:offset+limit<rows.length?offset+limit:null,search_mode:options.q?'indexed-bm25-all-terms':null,model_calls:0};
+  // 2026-11-21: only the shown page is expanded (brief() for all ~1 600 records took ~0.33 s on every list open).
+  rows=docs.slice(offset,offset+limit).map(d=>this.brief(d));
+  return {query:'',results:rows,total:docs.length,next_offset:offset+limit<docs.length?offset+limit:null,search_mode:null,model_calls:0};
  }
- projects(){const groups=new Map();for(const d of this.filtered()){const p=this.group(d);if(!groups.has(p.id))groups.set(p.id,{...p,count:0,reviewed:0});const g=groups.get(p.id);g.count++;if(this.guide(d))g.reviewed++;}return [...groups.values()].sort((a,b)=>b.count-a.count);}
+ projects(){return this.cached('projects',()=>this.buildProjects());}
+ buildProjects(){const groups=new Map(),reviewed=new Set(this.store.db.prepare('SELECT DISTINCT c.source_id id FROM cards c JOIN sources s ON s.id=c.source_id AND s.revision=c.revision').all().map(r=>r.id));for(const d of this.filtered()){const p=this.group(d);if(!groups.has(p.id))groups.set(p.id,{...p,count:0,reviewed:0});const g=groups.get(p.id);g.count++;if(reviewed.has(d.id))g.reviewed++;}return [...groups.values()].sort((a,b)=>b.count-a.count);}
  // Data version for caches: changes when sources, cards, links or manual project assignments change.
  fingerprint(){const db=this.store.db;return JSON.stringify([db.prepare('SELECT count(*) n,max(captured_at) c,total(length) l FROM sources').get(),db.prepare('SELECT count(*) n,max(reviewed_at) r FROM cards').get(),db.prepare('SELECT count(*) n FROM links').get(),db.prepare("SELECT count(*) n,group_concat(source_id||'='||project_id) p FROM project_assignments").get()]);}
  // Neighbours from the full logical graph (links + meaning), built once per data version. Opening a record used to run a
  // full BM25 search for "related" on every click (~0.7 s); now it is a map lookup.
- neighbours(){const fp=this.fingerprint();if(this.neighbourCache?.fp===fp)return this.neighbourCache.map;
+ neighbours(){return this.cached('neighbours',()=>{
   const map=new Map(),add=(a,b,e)=>{if(!map.has(a))map.set(a,[]);map.get(a).push({id:b,weight:e.weight,kinds:e.kinds,label:e.labels.find(l=>!l.startsWith('Проект:'))||e.labels[0]||''});};
   for(const e of this.network({limit:3000}).edges){if(e.kinds.length===1&&e.kinds[0]==='project')continue;add(e.source,e.target,e);add(e.target,e.source,e);}
   for(const list of map.values())list.sort((a,b)=>(b.kinds.includes('link')-a.kinds.includes('link'))||b.weight-a.weight);
-  this.neighbourCache={fp,map};return map;}
+  return map;});}
  related(id,limit=6){
   const d=this.source(id);if(!d)return [];const ranked=new Map();
   for(const n of this.neighbours().get(id)||[]){if(ranked.size>=limit)break;const o=this.source(n.id);if(o)ranked.set(o.id,{...this.brief(o),basis:n.kinds.includes('link')?'Ссылка в заметке':n.label||'Близкая по смыслу запись',score:n.weight});}
@@ -61,21 +66,38 @@ export class RecordViews{
  //  2. meaning: TF-IDF over Russian-stemmed card keywords (x3), card/source titles (x2), atoms and questions (x1);
  //     every record keeps its 4 closest records above a similarity floor, labelled with the shared topics;
  //  3. project hubs: one hub node per real project (3+ records), linked to its records like an Obsidian MOC note.
- network(options={}){
-  const docs=this.filtered(options).slice(0,Math.min(3000,Math.max(50,number(options.limit,2000)))),ids=new Set(docs.map(d=>d.id)),legacy=this.store.graph({provider:options.provider||'',mode:'all',limit:3000}),pairs=new Map();
+ // 2026-11-21 speed: one cache per data version, shared by the graph, «Похожие записи» and the project list (the first
+ // click on a record after every 15-minute sync used to rebuild the whole graph, ~1.7 s). Term vectors of a record are
+ // reused while the record and its cards are unchanged; similarity uses an index accumulator. Same edges as before.
+ cached(key,build){const fp=this.fingerprint();if(this.cacheFp!==fp){this.cache=new Map();this.cacheFp=fp;}if(!this.cache.has(key))this.cache.set(key,build());return this.cache.get(key);}
+ network(options={}){const o={provider:options.provider||'',project:options.project||'',since:options.since||'',until:options.until||'',limit:Math.min(3000,Math.max(50,number(options.limit,2000)))};return this.cached('network:'+JSON.stringify(o),()=>this.buildNetwork(o));}
+ // [[wikilinks]] between the given records (same alias resolution as BrainStore.graph, without the rest of that view).
+ wikilinks(docs){const ids=new Set(docs.map(d=>d.id)),aliasMap=new Map(),edges=[];
+  for(const a of this.store.db.prepare('SELECT * FROM aliases').all()){const p=a.alias.replace(/\.md$/i,'');aliasMap.set(p,a.source_id);const stem=path.posix.basename(p);if(!aliasMap.has(stem))aliasMap.set(stem,a.source_id);else if(aliasMap.get(stem)!==a.source_id)aliasMap.set(stem,null);}
+  const byId=new Map(docs.map(d=>[d.id,d]));for(const l of this.store.db.prepare("SELECT source_id,target FROM links WHERE kind='wikilink'").all()){const d=byId.get(l.source_id);if(!d)continue;const to=aliasMap.get(l.target)||aliasMap.get(path.posix.join(path.posix.dirname(d.source_path||''),l.target));if(to&&to!==d.id&&ids.has(to))edges.push({source:d.id,target:to});}
+  return edges;}
+ buildNetwork(options){
+  const docs=this.filtered(options).slice(0,options.limit),ids=new Set(docs.map(d=>d.id)),pairs=new Map();
   const edge=(a,b,kind,label,weight=1)=>{if(a===b)return;const [s,t]=[a,b].sort(),key=s+'\n'+t,old=pairs.get(key)||{source:s,target:t,weight:0,kinds:[],labels:[]};old.weight=Math.max(old.weight,weight);if(!old.kinds.includes(kind))old.kinds.push(kind);if(label&&!old.labels.includes(label)&&old.labels.length<3)old.labels.push(label);pairs.set(key,old);};
-  for(const e of legacy.edges)if(e.kind==='wikilink'&&ids.has(e.source)&&ids.has(e.target))edge(e.source,e.target,'link','Ссылка в заметке',1);
+  for(const e of this.wikilinks(docs))edge(e.source,e.target,'link','Ссылка в заметке',1);
   // 2. meaning
-  const STOP=new Set('это как что для или при его она они оно был была было быть есть нет так уже еще ещё все всё весь вся эти этот эта тот там тут где когда если чтобы через после перед более менее очень можно нужно надо также только просто пользователь пользователя пользователю ассистент ассистента ассистенту сообщил предложил предлагает хочет хотел попросил просит запросил уточнить понять сделать the and for with that this from are was you your have has not but'.split(' ').map(searchTerm));
-  const cards=new Map();for(const r of this.store.db.prepare('SELECT c.source_id,c.card_key,c.payload FROM cards c JOIN sources s ON s.id=c.source_id AND s.revision=c.revision').iterate()){if(!ids.has(r.source_id))continue;try{const p=JSON.parse(r.payload);if(!cards.has(r.source_id))cards.set(r.source_id,[]);cards.get(r.source_id).push(p);}catch{}}
-  const display=new Map(),vectors=new Map(),df=new Map();
-  for(const d of docs){const tf=new Map(),add=(text,w)=>{for(const word of words(String(text||''))){if(word.length<3||/^\d+$/.test(word))continue;const t=searchTerm(word);if(STOP.has(t))continue;if(!display.has(t))display.set(t,word);tf.set(t,(tf.get(t)||0)+w);}};
-   add(d.title,2);for(const c of cards.get(d.id)||[]){add(c.title,2);for(const k of c.keywords||[]){add(k,3);const phrase='k:'+normalizePhrase(k);if(phrase.length>4){if(!display.has(phrase))display.set(phrase,String(k).slice(0,40));tf.set(phrase,(tf.get(phrase)||0)+3);}}for(const q of c.questions||[])add(q,1);for(const i of c.items||[])add(i.text,1);}
-   if(tf.size){vectors.set(d.id,tf);for(const t of tf.keys())df.set(t,(df.get(t)||0)+1);}}
+  const rows=new Map();for(const r of this.store.db.prepare('SELECT c.source_id,c.card_key,c.reviewed_at,c.payload FROM cards c JOIN sources s ON s.id=c.source_id AND s.revision=c.revision').iterate()){if(!ids.has(r.source_id))continue;if(!rows.has(r.source_id))rows.set(r.source_id,[]);rows.get(r.source_id).push(r);}
+  this.termCache??=new Map();
+  const entry=d=>{const rs=rows.get(d.id)||[],sig=d.revision+'\n'+d.title+'\n'+rs.map(r=>r.card_key+'@'+r.reviewed_at+'#'+r.payload.length).join('|'),hit=this.termCache.get(d.id);if(hit?.sig===sig)return hit;
+   const list=[];for(const r of rs){try{list.push(JSON.parse(r.payload));}catch{}}
+   const tf=new Map(),disp=new Map(),add=(text,w)=>{for(const word of words(String(text||''))){if(word.length<3||/^\d+$/.test(word))continue;const t=searchTerm(word);if(STOP.has(t))continue;if(!disp.has(t))disp.set(t,word);tf.set(t,(tf.get(t)||0)+w);}};
+   add(d.title,2);for(const c of list){add(c.title,2);for(const k of c.keywords||[]){add(k,3);const phrase='k:'+normalizePhrase(k);if(phrase.length>4){if(!disp.has(phrase))disp.set(phrase,String(k).slice(0,40));tf.set(phrase,(tf.get(phrase)||0)+3);}}for(const q of c.questions||[])add(q,1);for(const i of c.items||[])add(i.text,1);}
+   const e={sig,tf,disp,cards:list.length,cardTitle:list.map(c=>c.title).find(x=>x&&x!=='Без полезных пунктов')};this.termCache.set(d.id,e);return e;};
+  const entries=new Map(docs.map(d=>[d.id,entry(d)])),display=new Map(),vectors=new Map(),df=new Map();
+  for(const d of docs){const e=entries.get(d.id);for(const [t,w]of e.disp)if(!display.has(t))display.set(t,w);if(e.tf.size){vectors.set(d.id,e.tf);for(const t of e.tf.keys())df.set(t,(df.get(t)||0)+1);}}
   const N=Math.max(1,vectors.size),maxDf=Math.max(25,Math.round(N*.06)),postings=new Map();
-  for(const [id,tf]of vectors){let norm=0;const v=new Map();for(const [t,f]of tf){const n=df.get(t);if(n<2||n>maxDf)continue;const w=(1+Math.log(f))*Math.log(1+N/n);v.set(t,w);norm+=w*w;}norm=Math.sqrt(norm)||1;if(v.size<3){vectors.delete(id);continue;}for(const [t,w]of v){const x=w/norm;v.set(t,x);if(!postings.has(t))postings.set(t,[]);postings.get(t).push([id,x]);}vectors.set(id,v);}
-  const candidates=[];for(const [id,v]of vectors){const score=new Map();for(const [t,x]of v)for(const [other,y]of postings.get(t)||[])if(other!==id)score.set(other,(score.get(other)||0)+x*y);
-   for(const [other,s]of [...score].sort((a,b)=>b[1]-a[1]).slice(0,4)){if(s<.16)break;candidates.push([id,other,s]);}}
+  for(const [id,tf]of vectors){let norm=0;const v=new Map();for(const [t,f]of tf){const n=df.get(t);if(n<2||n>maxDf)continue;const w=(1+Math.log(f))*Math.log(1+N/n);v.set(t,w);norm+=w*w;}norm=Math.sqrt(norm)||1;if(v.size<3){vectors.delete(id);continue;}for(const [t,w]of v)v.set(t,w/norm);vectors.set(id,v);}
+  // Numeric arrays for the similarity pass (same order of additions as the Map version, so identical scores).
+  const keys=[...vectors.keys()],acc=new Float64Array(keys.length),termIds=new Map(),docTerms=keys.map((id,i)=>{const v=vectors.get(id),ti=new Int32Array(v.size),tw=new Float64Array(v.size);let k=0;for(const [t,x]of v){let n=termIds.get(t);if(n===undefined){n=termIds.size;termIds.set(t,n);postings.set(n,[]);}postings.get(n).push(i,x);ti[k]=n;tw[k++]=x;}return [ti,tw];});
+  const plist=[...postings.values()];
+  const candidates=[];for(let i=0;i<keys.length;i++){const touched=[],[ti,tw]=docTerms[i];for(let m=0;m<ti.length;m++){const p=plist[ti[m]],x=tw[m];for(let k=0;k<p.length;k+=2){const j=p[k];if(j===i)continue;if(acc[j]===0)touched.push(j);acc[j]+=x*p[k+1];}}
+   const top=touched.map(j=>[j,acc[j]]).sort((a,b)=>b[1]-a[1]).slice(0,4);for(const j of touched)acc[j]=0;
+   for(const [j,sc]of top){if(sc<.16)break;candidates.push([keys[i],keys[j],sc]);}}
   // Strongest first; no record gets more than 8 meaning links, so generic records cannot become false hubs.
   const topicDegree=new Map(),seen=new Set();for(const [id,other,s]of candidates.sort((a,b)=>b[2]-a[2])){const key=[id,other].sort().join('|');if(seen.has(key))continue;if((topicDegree.get(id)||0)>=8||(topicDegree.get(other)||0)>=8)continue;seen.add(key);topicDegree.set(id,(topicDegree.get(id)||0)+1);topicDegree.set(other,(topicDegree.get(other)||0)+1);
    const v=vectors.get(id),o=vectors.get(other),shared=[...new Set([...v].filter(([t])=>o.has(t)).sort((a,b)=>b[1]*o.get(b[0])-a[1]*o.get(a[0])).map(([t])=>String(display.get(t)||'').toLowerCase()).filter(Boolean))].slice(0,2);edge(id,other,'topic',shared.length?'Общие темы: '+shared.join(', '):'Близкие по смыслу',Math.round(s*100)/100);}
@@ -83,8 +105,8 @@ export class RecordViews{
   const hubs=new Map();for(const d of docs){const p=this.group(d);if(p.type!=='project')continue;if(!hubs.has(p.id))hubs.set(p.id,{p,members:[]});hubs.get(p.id).members.push(d.id);}
   const hubNodes=[];for(const {p,members}of hubs.values()){if(members.length<3)continue;const id='project:'+p.id;hubNodes.push({id,label:p.label,provider:'hub',type:'hub',project_id:p.id,project_name:p.label,count:members.length});for(const m of members)edge(id,m,'project','Проект: '+p.label,.5);}
   const links=[...pairs.values()],degrees=new Map();for(const e of links)for(const id of [e.source,e.target])degrees.set(id,(degrees.get(id)||0)+1);
-  const nodes=[...hubNodes.map(h=>({...h,degree:degrees.get(h.id)||0})),...docs.map(d=>{const p=this.group(d);const ct=(cards.get(d.id)||[]).map(c=>c.title).find(x=>x&&x!=='Без полезных пунктов');return {id:d.id,label:/^(codex|claude-code|claude|chatgpt) · [0-9a-f-]{20,}$/i.test(d.title||'')&&ct?ct:d.title,provider:d.provider,type:'source',source_date:d.source_date,project_id:p.id,project_name:p.label,cards:(cards.get(d.id)||[]).length,degree:degrees.get(d.id)||0};})];
+  const nodes=[...hubNodes.map(h=>({...h,degree:degrees.get(h.id)||0})),...docs.map(d=>{const p=this.group(d);const e=entries.get(d.id),ct=e.cardTitle;return {id:d.id,label:/^(codex|claude-code|claude|chatgpt) · [0-9a-f-]{20,}$/i.test(d.title||'')&&ct?ct:d.title,provider:d.provider,type:'source',source_date:d.source_date,project_id:p.id,project_name:p.label,cards:e.cards,degree:degrees.get(d.id)||0};})];
   const records=nodes.filter(n=>n.type==='source');
-  return {nodes,edges:links,mode:'network',total_sources:this.store.stats().sources,shown_sources:records.length,hubs:hubNodes.length,linked_sources:records.filter(n=>n.degree).length,isolated_sources:records.filter(n=>!n.degree).length,edge_kinds:Object.fromEntries(['link','topic','project'].map(k=>[k,links.filter(e=>e.kinds.includes(k)).length])),projects:this.projects(),semantics:'Явные ссылки между заметками, близость по смыслу (ключевые слова, заголовки и факты карточек с учётом русских словоформ) и хабы проектов. По папке связи не строятся.'};
+  return {nodes,edges:links,mode:'network',total_sources:this.store.db.prepare('SELECT count(*) n FROM sources').get().n,shown_sources:records.length,hubs:hubNodes.length,linked_sources:records.filter(n=>n.degree).length,isolated_sources:records.filter(n=>!n.degree).length,edge_kinds:Object.fromEntries(['link','topic','project'].map(k=>[k,links.filter(e=>e.kinds.includes(k)).length])),projects:this.projects(),semantics:'Явные ссылки между заметками, близость по смыслу (ключевые слова, заголовки и факты карточек с учётом русских словоформ) и хабы проектов. По папке связи не строятся.'};
  }
 }
