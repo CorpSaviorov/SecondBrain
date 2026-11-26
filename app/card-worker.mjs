@@ -247,6 +247,14 @@ export class CardWorker{
      if(!response&&[401,402,403].includes(code)){this.hold={run:runId,until:this.now()+1800000,reason:'Провайдер отклонил запрос ('+code+'): проверьте баланс и API-ключ. Повтор через 30 минут'};this.mark(d,'waiting','Ждёт: '+this.hold.reason);continue;}
      // First citation failure of a unit: one automatic retry with the second-opinion model instead of manual review.
      if(response&&!previousFailures&&this.pool().length>1&&!/Пустой обзор/.test(e.message)){this.mark(d,'waiting','Ошибка проверки цитат — повтор запасной моделью');continue;}
+     // 2026-11-27: no connection or a provider-side failure (5xx) is an outage, not a problem with the record: the record
+     // stays queued; after REQUEST_RETRIES failures within 30 minutes every lane pauses 15 minutes and then resumes by
+     // itself. Only a unit that keeps failing for a long time (more than 12 request errors) goes to manual review.
+     if(!response&&(!code||code>=500)&&!/лимит|ключ|тариф/i.test(e.message)){
+      const all=this.store.db.prepare("SELECT count(*) n FROM processing_attempts WHERE source_id=? AND revision=? AND unit_key=? AND status='request-error'").get(d.id,d.revision,unitKey).n;
+      if(all<=12){const recent=this.store.db.prepare("SELECT count(*) n FROM processing_attempts WHERE source_id=? AND revision=? AND unit_key=? AND status='request-error' AND started_at>?").get(d.id,d.revision,unitKey,new Date(this.now()-1800000).toISOString()).n;
+       if(recent>=REQUEST_RETRIES)this.hold={run:runId,until:this.now()+900000,reason:'Провайдер модели недоступен по сети: пауза 15 минут, затем обработка продолжится сама'};
+       this.mark(d,'waiting',(recent>=REQUEST_RETRIES?'Ждёт: '+this.hold.reason:'Временная ошибка связи, повтор '+recent+'/'+REQUEST_RETRIES)+' · '+e.message);continue;}}
      const transient=!response&&!/лимит|ключ|тариф/i.test(e.message)?this.store.db.prepare("SELECT count(*) n FROM processing_attempts WHERE source_id=? AND revision=? AND unit_key=? AND status='request-error'").get(d.id,d.revision,unitKey).n:Infinity;
      if(transient<REQUEST_RETRIES)this.mark(d,'waiting','Временная ошибка запроса, повтор '+transient+'/'+REQUEST_RETRIES+': '+e.message);else this.mark(d,'needs-review',e.message);}
    }};

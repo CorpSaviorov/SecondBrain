@@ -20,14 +20,19 @@ export async function syncAccount({provider,get,ingest,known=[],checkpoint={},sa
  cp.catalogSeen??={};const cursor=cp.laneCursor||0,ordered=[...workLanes.slice(cursor),...workLanes.slice(0,cursor)];
  for(const scope of ordered){
   if(requests>=Math.max(4,maxRequests-4))break;const {key,lane,org}=scope,backfill=cp.offsets[key]||0,archived=lane.includes('archive');
-  for(const offset of backfill?[0,backfill]:[0]){
+  // 2026-11-27: a history pass reads up to 5 pages per run while the request budget allows (one page per run took
+  // weeks), and a finished pass is repeated at most weekly — changed chats always rise to the first page anyway.
+  cp.backfillDone??={};const offsets=backfill?[0,backfill]:[0];
+  for(let k=0;k<offsets.length;k++){const offset=offsets[k],isBack=k>0;
    if(requests>=Math.max(4,maxRequests-2))break;
    const route=provider==='chatgpt'?'/backend-api/conversations?'+new URLSearchParams({[lane.includes('tpp')?'conversation_origin':'exclude_conversation_origin']:'tpp',expand:'false',hide_snorlax:'false',is_archived:String(archived),is_starred:'false',limit:'20',order:'updated',offset:String(offset)}):`/api/organizations/${org}/chat_conversations_v2?limit=30&offset=${offset}&archived=${archived}&consistency=strong`;
    let page;try{page=await read(route);}catch(e){if(provider==='claude'&&e.status===403){errors.push({scope:key,error:'Organization not accessible'});break;}throw e;}
    const items=provider==='chatgpt'?page.items:page.data;if(!Array.isArray(items)||provider==='chatgpt'&&!Number.isSafeInteger(page.total)||provider==='claude'&&typeof page.has_more!=='boolean')throw Error('Conversation catalog format changed');
    const more=provider==='chatgpt'?offset+items.length<page.total:page.has_more;if(!items.length&&more)throw Error('Catalog pagination did not advance');
    for(const item of items)consider(item,org,item.project?.name,item.gizmo_id);
-   if(offset===backfill)cp.offsets[key]=more?offset+items.length:0;cp.catalogSeen[key]=true;save(cp);
+   if(isBack){cp.offsets[key]=more?offset+items.length:0;if(!more)cp.backfillDone[key]=Date.now();else if(k<5&&requests<maxRequests-12)offsets.push(offset+items.length);}
+   else if(!backfill)cp.offsets[key]=more&&!(Date.now()-(cp.backfillDone[key]||0)<7*86400000)?items.length:0;
+   cp.catalogSeen[key]=true;save(cp);
   }
   cp.laneCursor=(workLanes.findIndex(l=>l.key===key)+1)%workLanes.length;
  }
@@ -60,5 +65,5 @@ export async function syncAccount({provider,get,ingest,known=[],checkpoint={},sa
    const receipt=await ingest(raw);if(receipt.pending||receipt.imported!==1)throw Error('No complete canonical receipt');changed+=receipt.changed||0;captured++;delete cp.progress[id];cp.pending.splice(candidateIndex,1);save(cp);
   }catch(e){if(!e.budget)throw e;const progress=cp.progress[id];if(progress){const staged=joinChatPages(progress.main,progress.older);staged.page_info.has_previous_page=true;staged._secondbrain.older_pages_exhausted=false;await ingest(staged);partial++;save(cp);}break;}
  }
- return {changed,captured,partial,requests,remaining:cp.pending.length,checkpoint:cp,catalog_scan_complete:workLanes.every(l=>cp.catalogSeen[l.key]&&cp.offsets[l.key]===0)&&(provider!=='chatgpt'||cp.projectsSeen===true)&&!errors.length,errors,catalog_coverage:provider==='chatgpt'?'main,tpp,archive,archive-tpp; every project listed separately ('+(cp.projects?.length??'?')+' projects)':'main and archive for all returned chat-capable organizations',attachments_bytes_verified:false};
+ return {changed,captured,partial,requests,remaining:cp.pending.length,checkpoint:cp,catalog_scan_complete:workLanes.every(l=>cp.catalogSeen[l.key]&&(cp.offsets[l.key]===0||cp.backfillDone[l.key]))&&(provider!=='chatgpt'||cp.projectsSeen===true)&&!errors.length,errors,catalog_coverage:provider==='chatgpt'?'main,tpp,archive,archive-tpp; every project listed separately ('+(cp.projects?.length??'?')+' projects)':'main and archive for all returned chat-capable organizations',attachments_bytes_verified:false};
 }

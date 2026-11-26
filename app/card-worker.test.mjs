@@ -45,8 +45,8 @@ test('parallel lanes process different sources concurrently and never the same s
  for(let i=0;i<8;i++)f.s.ingest(source('p'+i));const text=Array.from({length:420},(_,i)=>`Фрагмент ${String(i).padStart(6,'0')}: сведения проекта и уникальное окно проверки.
 `).join('');f.s.ingest(source('long',text));
  const r=await f.w.run('scheduled');assert.ok(peak>1&&peak<=PARALLEL_LANES,'peak '+peak);assert.deepEqual(dup,[]);assert.equal(r.errors,0);assert.ok(r.units>=9);f.s.close();});
-test('a request with no response is requeued at most three times; invalid output is not',async()=>{let time=Date.now(),n=0;const f=fixture({clock:()=>time,reply:()=>{n++;throw Error('network down');}});const a=f.s.ingest(source('net'));
- for(let i=0;i<5;i++){await f.w.run('scheduled');time+=3601000;}assert.equal(n,3);assert.equal(f.w.status().counts['needs-review'],1);f.s.close();});
+test('a request with no response keeps retrying across outages and goes to manual review only after more than 12 failures',async()=>{let time=Date.now(),n=0;const f=fixture({clock:()=>time,reply:()=>{n++;throw Error('network down');}});const a=f.s.ingest(source('net'));
+ for(let i=0;i<6;i++){await f.w.run('scheduled');time+=3601000;}assert.equal(n,13);assert.equal(f.w.status().counts['needs-review'],1);f.s.close();});
 test('stored drafts recover items that the old exact-only validator omitted, without a model call',async()=>{const text='Сначала обсудили базу. Это вызов той самой функции `User`, только **особым** способом.';
  const f=fixture({reply:p=>{const u=p.units[0];return {disposition:'card',title:'Карточка',questions:['Что?'],keywords:['функция'],uncertainties:[],items:[{kind:'user_goal',text:'Первый пункт',evidence:[{unit_id:u.id,role:'user',quote:'Сначала обсудили базу.'}]},{kind:'user_goal',text:'Второй пункт',evidence:[{unit_id:u.id,role:'user',quote:'вызов той самой функции User, только особым способом.'}]}]};}});
  const a=f.s.ingest(source('md',text));await f.w.run();const rev=f.s.db.prepare('SELECT revision FROM sources WHERE id=?').get(a.id).revision;
@@ -132,3 +132,6 @@ test('a first citation failure is retried automatically by the second-opinion mo
  const d=f.s.ingest(source('auto'));const st=()=>f.s.db.prepare('SELECT status FROM processing_queue WHERE source_id=?').get(d.id).status;
  await f.w.run('manual',{sourceId:d.id,maxUnits:1});assert.equal(st(),'waiting');await f.w.run('manual',{sourceId:d.id,maxUnits:1});assert.equal(st(),'needs-review');assert.deepEqual(models,['gpt-6-luna','claude-sonnet-5-5']);
  bad=0;f.w.retryAll();await f.w.run('manual',{sourceId:d.id,maxUnits:1});assert.equal(st(),'complete');f.s.close();});
+test('provider outage keeps the record queued, pauses 15 minutes after repeated failures, then resumes by itself',async()=>{let down=true,t=Date.now();const f=fixture({clock:()=>t,reply:p=>{if(down)throw Error('connect failed');return answer(p);}});const a=f.s.ingest(source('net'));
+ await f.w.run();await f.w.run();const st=f.w.status();assert.equal(st.counts['needs-review']||0,0);assert.equal(st.counts.waiting,1);assert.match(st.blocked_reason||'',/недоступен по сети/);
+ assert.equal((await f.w.run()).blocked,true);t+=16*60000;down=false;const r=await f.w.run();assert.equal(r.changed_cards,1);assert.ok(f.s.detail(a.id).card);f.s.close();});

@@ -30,3 +30,14 @@ test('a broken project list is reported, not counted as a complete scan',async()
  const r=await syncAccount({provider:'chatgpt',get:async p=>p.startsWith('/backend-api/conversations?')?{items:[],total:0}:{unexpected:true},ingest:async()=>({imported:1})});
  assert.equal(r.catalog_scan_complete,false);assert.equal(r.errors[0].scope,'projects');
 });
+test('history pass reads up to five pages per run and is not restarted within a week',async()=>{
+ const id=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0'),all=Array.from({length:100},(_,i)=>({id:id(i),update_time:'2026-11-01T00:00:00Z'})),calls=[];
+ const isMain=p=>{const u=new URL(p,'http://x');return p.startsWith('/backend-api/conversations?')&&!u.searchParams.get('conversation_origin')&&u.searchParams.get('is_archived')==='false';};
+ const get=async p=>{calls.push(p);if(p.startsWith('/backend-api/gizmos/snorlax/sidebar'))return {items:[],cursor:null};if(p.startsWith('/backend-api/conversations?')){const off=Number(new URL(p,'http://x').searchParams.get('offset'));return isMain(p)?{items:all.slice(off,off+20),total:all.length}:{items:[],total:0};}throw Error('unexpected '+p);};
+ const known=all.map(c=>({id:c.id,updated:c.update_time,partial:false})),cp={offsets:{main:20},pending:[],progress:{}};
+ const r=await syncAccount({provider:'chatgpt',get,ingest:async()=>({imported:1}),known,checkpoint:cp});
+ assert.deepEqual(calls.filter(isMain).map(p=>new URL(p,'http://x').searchParams.get('offset')),['0','20','40','60','80']);
+ assert.equal(cp.offsets.main,0);assert.ok(cp.backfillDone.main);assert.equal(r.catalog_scan_complete,true);
+ calls.length=0;const r2=await syncAccount({provider:'chatgpt',get,ingest:async()=>({imported:1}),known,checkpoint:cp});
+ assert.deepEqual(calls.filter(isMain).map(p=>new URL(p,'http://x').searchParams.get('offset')),['0']);assert.equal(cp.offsets.main,0);assert.equal(r2.catalog_scan_complete,true);
+});
