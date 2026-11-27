@@ -12,6 +12,10 @@ try{
  if(-not $acquired){exit 0}
  Write-LaunchLog 'Supervisor started'
  $delay=2
+ $quick=0
+ # 2026-11-27: the server cannot report its own crash loop, so the supervisor shows one Windows notification
+ # after three quick exits in a row (until a run lasts more than a minute again).
+ function Show-CrashToast{try{$payload=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes((@{title='Второй мозг: сервер падает при запуске';body='SecondBrain перезапускается после сбоя уже 3 раза подряд. Причина — в app\server.stderr.log.';url=$url+'/';tag='crashloop';app='Второй мозг'}|ConvertTo-Json -Compress)));& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File (Join-Path $appRoot 'tools\notify.ps1') -Payload $payload|Out-Null;Write-LaunchLog 'Crash loop: notification shown'}catch{Write-LaunchLog ('Crash loop notification failed: '+$_.Exception.Message)}}
  for(;;){
   if(Test-Brain){Start-Sleep -Seconds 5;continue}
   $port=Get-NetTCPConnection -LocalPort 8877 -State Listen -ErrorAction SilentlyContinue
@@ -22,7 +26,8 @@ try{
   Write-LaunchLog ('Server started; pid='+$child.Id)
   while(-not $child.HasExited){Start-Sleep -Seconds 3;$child.Refresh()}
   Write-LaunchLog ('Server exited; exit='+$child.ExitCode)
-  if(((Get-Date)-$started).TotalSeconds -gt 60){$delay=2}else{$delay=[Math]::Min(60,$delay*2)}
+  if(((Get-Date)-$started).TotalSeconds -gt 60){$delay=2;$quick=0}else{$delay=[Math]::Min(60,$delay*2);$quick++}
+  if($quick -eq 3){Show-CrashToast}
   Start-Sleep -Seconds $delay
  }
 }catch{Write-LaunchLog ('Supervisor error: '+$_.Exception.Message);exit 1}finally{if($acquired){$mutex.ReleaseMutex()};$mutex.Dispose()}

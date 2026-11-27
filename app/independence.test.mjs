@@ -7,7 +7,7 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 test('isolated app boots, reads and searches with no Gateway, Obsidian, legacy service or collectors',async()=>{
  const from=path.dirname(fileURLToPath(import.meta.url)),root=fs.mkdtempSync(path.join(os.tmpdir(),'brain-independent-'));
- for(const file of ['server.mjs','store.mjs','project-groups.mjs','model-provider.mjs','record-view.mjs','card-worker.mjs','card-packets.mjs','billing.mjs','card-output-schema.mjs','formats.mjs','native-read.py','attachment-index.mjs'])fs.copyFileSync(path.join(from,file),path.join(root,file));
+ for(const file of ['server.mjs','store.mjs','project-groups.mjs','model-provider.mjs','record-view.mjs','card-worker.mjs','card-packets.mjs','billing.mjs','card-output-schema.mjs','formats.mjs','native-read.py','attachment-index.mjs','auto-projects.mjs','notifier.mjs','health.mjs'])fs.copyFileSync(path.join(from,file),path.join(root,file));
  for(const dir of ['lib','connectors','public','python'])fs.cpSync(path.join(from,dir),path.join(root,dir),{recursive:true});
  const child=spawn(process.execPath,[path.join(root,'server.mjs')],{cwd:root,windowsHide:true,env:{...process.env,BRAIN_DB:path.join(root,'standalone.sqlite'),BRAIN_PORT:'0',BRAIN_OBSIDIAN_ROOT:path.join(root,'nonexistent-vault')}});
  try{

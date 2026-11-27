@@ -230,3 +230,14 @@ body.record-open main{margin-right:calc(min(460px,40vw) + 12px)}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
  .sidebar,.page-head,.detail,.accent-pop,.toast,.graph-panel,.graph-tooltip,.graph-controls .icon-btn,.graph-caption,.topbar{background:var(--panel)}
 }
+
+/* Automatic projects and notifications (2026-11-27) */
+.auto-projects{margin-bottom:16px}
+.ap-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.ap-head h2{font-size:16px;margin-bottom:4px}
+.ap-state{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:10px;font-size:13px;color:var(--muted);line-height:1.6}
+.notify-active{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}
+.notify-active li+li{margin-top:2px}
+#notify-panel .check{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:6px}
+#notify-panel .card-actions{margin:10px 0}
+@media (max-width:560px){.ap-head{flex-direction:column}}

@@ -22,10 +22,18 @@ const PUBLIC_ORIGINS=String(process.env.BRAIN_PUBLIC_ORIGIN||'').split(',').map(
 const PUBLIC_HOSTS=new Set(PUBLIC_ORIGINS.map(u=>u.host.toLowerCase())),PUBLIC_ORIGIN_SET=new Set(PUBLIC_ORIGINS.map(u=>u.origin.toLowerCase()));
 const LOCAL_HOST=/^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i,LOCAL_ORIGIN=/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i;
 const hostAllowed=h=>LOCAL_HOST.test(h)||PUBLIC_HOSTS.has(h.toLowerCase()),originAllowed=o=>LOCAL_ORIGIN.test(o)||PUBLIC_ORIGIN_SET.has(o.toLowerCase());
+import {AutoProjects} from './auto-projects.mjs';
+import {Notifier} from './notifier.mjs';
+import {Health} from './health.mjs';
 const root=path.dirname(fileURLToPath(import.meta.url)),port=Number(process.env.BRAIN_PORT||8877),store=new BrainStore();
 resolvePendingCaptures(store);
 const registry=new ConnectorRegistry(store),modelProvider=new ModelProvider(store),recordViews=new RecordViews(store),attachments=new AttachmentIndex(store),cardWorker=new CardWorker(store,modelProvider),mailAccounts=new MailAccounts(store,registry);let syncing=false;
 try{const c=reclassify(store.db);console.log('Mail filter: '+JSON.stringify(c));}catch(e){console.error('mail filter',e.message);}
+// 2026-11-27: automatic projects (Luna, same budget as the cards) and Windows notifications about failures.
+const autoProjects=new AutoProjects(store,modelProvider,recordViews,{gate:()=>cardWorker.gate(),busy:()=>Boolean(cardWorker.running)});
+const notifier=new Notifier(store,{origin:'http://127.0.0.1:'+port});
+const gatewayDir=process.env.BRAIN_GATEWAY_DIR||(fs.existsSync(path.resolve(root,'../gateway/config.json'))?path.resolve(root,'../gateway'):null);
+const health=new Health({registry,cardWorker,provider:modelProvider,storeDir:path.dirname(store.filename),gatewayDir});
 try{const n=cardWorker.recoverCitationDrafts();if(n)console.log('Recovered '+n+' units held for citation errors from stored drafts');}catch(e){console.error('recoverCitationDrafts',e.message);}
 try{const n=cardWorker.recoverEmptyDrafts();if(n)console.log('Recovered '+n+' empty reviews from stored drafts');}catch(e){console.error('recoverEmptyDrafts',e.message);}
 try{const r=cardWorker.recoverOmissions();if(r.recovered)console.log('Recovered '+r.items+' verified card items from stored drafts in '+r.recovered+' units');}catch(e){console.error('recoverOmissions',e.message);}
@@ -89,6 +97,11 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==='POST'&&u.pathname==='/api/processing/revalidate'){const p=await readBody(req);return send(res,200,cardWorker.revalidate(p.id));}
   if(req.method==='POST'&&u.pathname==='/api/processing/retry-all')return send(res,200,cardWorker.retryAll());
   if(req.method==='POST'&&u.pathname==='/api/processing/retry'){const p=await readBody(req);return send(res,200,cardWorker.retry(p.id));}
+  if(req.method==='GET'&&u.pathname==='/api/auto-projects')return send(res,200,autoProjects.status());
+  if(req.method==='POST'&&u.pathname==='/api/auto-projects/run')return send(res,200,autoProjects.start());
+  if(req.method==='GET'&&u.pathname==='/api/notifications')return send(res,200,notifier.status());
+  if(req.method==='POST'&&u.pathname==='/api/notifications')return send(res,200,notifier.configure(await readBody(req)));
+  if(req.method==='POST'&&u.pathname==='/api/notifications/test')return send(res,200,await notifier.test());
   if(req.method==='GET'&&u.pathname==='/api/model')return send(res,200,modelProvider.status());
   if(req.method==='POST'&&u.pathname==='/api/model')return send(res,200,modelProvider.save(await readBody(req)));
   if(req.method==='POST'&&u.pathname==='/api/model/check')return send(res,200,await modelProvider.check());
@@ -186,3 +199,9 @@ let closing=false;async function shutdown(){if(closing)return;closing=true;clear
 // cards), so the first record click or graph open after a change does not pay for the rebuild.
 let warmFp=null;const warm=()=>{try{const fp=recordViews.fingerprint();if(fp===warmFp)return;recordViews.network({limit:3000});recordViews.neighbours();recordViews.projects();warmFp=fp;}catch(e){console.error('cache warm',e.message);}};
 setTimeout(warm,1500).unref();setInterval(warm,20000).unref();
+// Automatic projects: up to 100 records every 10 minutes while the cards worker is idle (the whole backlog: «Разметить
+// сейчас» on the Projects page). Notifications: problems are checked every 5 minutes.
+const autoTick=()=>{if(modelProvider.config().automatic)autoProjects.run({maxBatches:5}).catch(e=>console.error('auto projects',e.message));};
+setTimeout(autoTick,120000).unref();setInterval(autoTick,10*60000).unref();
+let healthBusy=false;const healthTick=async()=>{if(healthBusy)return;healthBusy=true;try{await notifier.update(await health.problems());}catch(e){console.error('notifications',e.message);}finally{healthBusy=false;}};
+setTimeout(healthTick,90000).unref();setInterval(healthTick,5*60000).unref();

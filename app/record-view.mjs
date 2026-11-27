@@ -4,12 +4,26 @@ import {dateMillis} from './lib/ranking.mjs';
 import {serviceCategory,CATEGORY_NAMES} from './lib/mail-filter.mjs';
 import {normalizePhrase,words,searchTerm} from './lib/lexical.mjs';
 const STOP=new Set('это как что для или при его она они оно был была было быть есть нет так уже еще ещё все всё весь вся эти этот эта тот там тут где когда если чтобы через после перед более менее очень можно нужно надо также только просто пользователь пользователя пользователю ассистент ассистента ассистенту сообщил предложил предлагает хочет хотел попросил просит запросил уточнить понять сделать the and for with that this from are was you your have has not but'.split(' ').map(searchTerm));
+export const AUTO_MIN=3;
 const number=(v,fallback)=>Number.isFinite(Number(v))?Number(v):fallback;
 export class RecordViews{
- constructor(store){this.store=store;store.db.exec(`CREATE TABLE IF NOT EXISTS record_annotations(source_id TEXT PRIMARY KEY,note TEXT NOT NULL,pinned INTEGER NOT NULL,version INTEGER NOT NULL,base_revision TEXT NOT NULL,updated_at TEXT NOT NULL);
+ constructor(store){this.store=store;store.db.exec(`CREATE TABLE IF NOT EXISTS auto_projects(source_id TEXT PRIMARY KEY,revision TEXT NOT NULL,project TEXT NOT NULL,confidence TEXT NOT NULL,basis TEXT NOT NULL,known INTEGER NOT NULL DEFAULT 0,model TEXT,request_id TEXT,assigned_at TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS record_annotations(source_id TEXT PRIMARY KEY,note TEXT NOT NULL,pinned INTEGER NOT NULL,version INTEGER NOT NULL,base_revision TEXT NOT NULL,updated_at TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS record_annotation_history(source_id TEXT NOT NULL,version INTEGER NOT NULL,note TEXT NOT NULL,pinned INTEGER NOT NULL,base_revision TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(source_id,version));`);}
  source(id){return this.store.db.prepare('SELECT * FROM sources WHERE id=?').get(id);}
- group(d){return projectGroup(d,this.store.db.prepare('SELECT * FROM project_assignments WHERE source_id=?').get(d.id));}
+ group(d){return projectGroup(d,this.store.db.prepare('SELECT * FROM project_assignments WHERE source_id=?').get(d.id),this.autoMap().get(d.id)||null);}
+ // 2026-11-27 automatic projects: record id → project chosen by Luna. A name counts as a project when it is one of the
+ // projects that already exist (known) or when at least AUTO_MIN records got it; doubtful (low) answers are ignored.
+ // Re-read at most once a second, and only when the table changed.
+ autoMap(){const now=Date.now();if(this.autoMemo&&now-this.autoMemo.at<1000)return this.autoMemo.map;
+  const sig=JSON.stringify(this.store.db.prepare('SELECT count(*) n,max(assigned_at) a FROM auto_projects').get());if(this.autoMemo?.sig===sig){this.autoMemo.at=now;return this.autoMemo.map;}
+  // known = the name is one of the owner's own projects (ChatGPT project, folder, manual choice); a new name needs
+  // AUTO_MIN records with at least one confident («high») answer, so a vague grab-bag of «maybe» answers stays out.
+  const rows=this.store.db.prepare("SELECT source_id,project,known,confidence FROM auto_projects WHERE project<>'' AND confidence<>'low'").all(),count=new Map(),high=new Map(),known=new Set(),spelling=new Map();
+  for(const r of rows){const k=r.project.toLowerCase();count.set(k,(count.get(k)||0)+1);if(r.confidence==='high')high.set(k,(high.get(k)||0)+1);if(r.known)known.add(k);if(!spelling.has(k))spelling.set(k,r.project);}
+  const map=new Map();for(const r of rows){const k=r.project.toLowerCase();if(known.has(k)||count.get(k)>=AUTO_MIN&&high.get(k)>=1)map.set(r.source_id,spelling.get(k));}
+  this.autoMemo={at:now,sig,map};return map;}
+ invalidateAuto(){this.autoMemo=null;}
  guide(d){const cards=this.store.db.prepare('SELECT card_key,payload,reviewed_at FROM cards WHERE source_id=? AND revision=?').all(d.id,d.revision),selected=cards.find(c=>c.card_key==='synthesis'&&JSON.parse(c.payload).synthesis_complete)||cards.find(c=>c.card_key==='full')||cards[0];return selected?{...JSON.parse(selected.payload),reviewed_at:selected.reviewed_at,key:selected.card_key}:null;}
  annotation(id){return this.store.db.prepare('SELECT * FROM record_annotations WHERE source_id=?').get(id)||{source_id:id,note:'',pinned:0,version:0,base_revision:null,updated_at:null};}
  saveAnnotation(id,{note='',pinned=false,expected_version=0,base_revision}={}){
@@ -44,9 +58,9 @@ export class RecordViews{
   return {query:'',results:rows,total:docs.length,next_offset:offset+limit<docs.length?offset+limit:null,search_mode:null,model_calls:0};
  }
  projects(){return this.cached('projects',()=>this.buildProjects());}
- buildProjects(){const groups=new Map(),reviewed=new Set(this.store.db.prepare('SELECT DISTINCT c.source_id id FROM cards c JOIN sources s ON s.id=c.source_id AND s.revision=c.revision').all().map(r=>r.id));for(const d of this.filtered()){const p=this.group(d);if(!groups.has(p.id))groups.set(p.id,{...p,count:0,reviewed:0});const g=groups.get(p.id);g.count++;if(reviewed.has(d.id))g.reviewed++;}return [...groups.values()].sort((a,b)=>b.count-a.count);}
+ buildProjects(){const groups=new Map(),reviewed=new Set(this.store.db.prepare('SELECT DISTINCT c.source_id id FROM cards c JOIN sources s ON s.id=c.source_id AND s.revision=c.revision').all().map(r=>r.id));for(const d of this.filtered()){const p=this.group(d);if(!groups.has(p.id))groups.set(p.id,{...p,count:0,reviewed:0,auto:0});const g=groups.get(p.id);g.count++;if(reviewed.has(d.id))g.reviewed++;if(p.basis==='auto')g.auto++;}return [...groups.values()].sort((a,b)=>b.count-a.count);}
  // Data version for caches: changes when sources, cards, links or manual project assignments change.
- fingerprint(){const db=this.store.db;return JSON.stringify([db.prepare('SELECT count(*) n,max(captured_at) c,total(length) l FROM sources').get(),db.prepare('SELECT count(*) n,max(reviewed_at) r FROM cards').get(),db.prepare('SELECT count(*) n FROM links').get(),db.prepare("SELECT count(*) n,group_concat(source_id||'='||project_id) p FROM project_assignments").get()]);}
+ fingerprint(){const db=this.store.db;return JSON.stringify([db.prepare('SELECT count(*) n,max(captured_at) c,total(length) l FROM sources').get(),db.prepare('SELECT count(*) n,max(reviewed_at) r FROM cards').get(),db.prepare('SELECT count(*) n FROM links').get(),db.prepare("SELECT count(*) n,group_concat(source_id||'='||project_id) p FROM project_assignments").get(),db.prepare('SELECT count(*) n,max(assigned_at) a FROM auto_projects').get()]);}
  // Neighbours from the full logical graph (links + meaning), built once per data version. Opening a record used to run a
  // full BM25 search for "related" on every click (~0.7 s); now it is a map lookup.
  neighbours(){return this.cached('neighbours',()=>{
