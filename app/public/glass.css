@@ -241,3 +241,8 @@ body.record-open main{margin-right:calc(min(460px,40vw) + 12px)}
 #notify-panel .check{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:6px}
 #notify-panel .card-actions{margin:10px 0}
 @media (max-width:560px){.ap-head{flex-direction:column}}
+
+/* Author credit: a quiet footer at the end of every page */
+.app-footer{margin-top:40px;padding:16px 4px 4px;border-top:1px solid var(--line);font-size:12px;letter-spacing:.01em;color:var(--dim);text-align:center}
+.app-footer .credit{color:var(--muted);font-weight:600;text-decoration:none;transition:color .2s ease}
+.app-footer .credit:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
