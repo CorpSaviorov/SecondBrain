@@ -1,6 +1,6 @@
 {
   "name": "secondbrain",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Локальная «вторая память» для ИИ: чаты ChatGPT, Claude, Codex, Claude Code, почта и заметки в одной базе с поиском через MCP",
   "private": true,
   "type": "module",
